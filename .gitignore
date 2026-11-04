@@ -1,0 +1,6 @@
+# 인터넷에 올리지 않는 것
+# 두 분의 돈 기록 (CSV, data.js)
+import/
+# 이메일 주소가 들어 있는 설정 파일
+supabase/
+_test.html

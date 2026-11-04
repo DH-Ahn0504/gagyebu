@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14161b">
+  <title>하푸들의 가계부</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>하푸들의 가계부</h1>
+    <nav class="tabs" id="tabs" hidden>
+      <button class="tab active" data-view="main">가계부</button>
+      <button class="tab" data-view="history">내역</button>
+    </nav>
+    <span class="who"><span id="me"></span><button id="logout" hidden>로그아웃</button></span>
+  </header>
+
+  <main>
+    <!-- 로그인 화면 -->
+    <section id="view-login" hidden>
+      <section class="card">
+        <h2>로그인</h2>
+        <form id="login-form" class="form">
+          <label>이메일 <input name="email" type="email" autocomplete="email" required></label>
+          <label>비밀번호 <input name="password" type="password" autocomplete="current-password" minlength="8" required></label>
+          <p class="error" role="alert"></p>
+          <div class="row">
+            <button type="button" id="signup">처음이에요 (가입)</button>
+            <button type="submit">로그인</button>
+          </div>
+        </form>
+        <p class="hint">허락된 두 사람의 이메일만 가계부를 볼 수 있습니다. 처음 가입하면 확인 메일이 오니, 메일의 링크를 누른 뒤 로그인하세요.</p>
+      </section>
+    </section>
+
+    <!-- 가계부 화면 -->
+    <section id="view-main" hidden>
+      <img id="photo" class="photo" alt="동현과 나윤" hidden>
+      <section class="card">
+        <h2>통장 잔고</h2>
+        <div id="accounts" class="accounts"></div>
+      </section>
+
+      <section class="card">
+        <div class="nav-row">
+          <button id="m-prev" aria-label="이전 달">‹</button>
+          <strong id="m-label"></strong>
+          <button id="m-next" aria-label="다음 달">›</button>
+        </div>
+        <div class="sums">
+          <button id="sum-income" class="sum income"></button>
+          <button id="sum-expense" class="sum expense"></button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>새 내역 입력</h2>
+        <form id="txn-form" class="form"></form>
+      </section>
+
+      <section class="card">
+        <h2>선택한 달 내역</h2>
+        <ul id="month-list" class="txns"></ul>
+      </section>
+
+      <details class="card">
+        <summary>통장 현재 잔액 설정</summary>
+        <form id="balance-form" class="form"></form>
+      </details>
+
+      <details class="card">
+        <summary>수입·지출 분류 관리</summary>
+        <form id="cat-form" class="form inline">
+          <label>분류 종류 <select name="type"><option value="expense">지출</option><option value="income">수입</option></select></label>
+          <label>새 분류 이름 <input name="name" maxlength="20" required></label>
+          <button>분류 추가</button>
+        </form>
+        <h3>지출 분류</h3><ul id="cat-expense" class="chips"></ul>
+        <h3>수입 분류</h3><ul id="cat-income" class="chips"></ul>
+      </details>
+
+      <details class="card">
+        <summary>매달 자동으로 빠지는 돈</summary>
+        <form id="bill-form" class="form">
+          <label>내용 <input name="description" maxlength="60" required></label>
+          <label>매달 금액 (€) <input name="amount" inputmode="decimal" required></label>
+          <label>빠져나갈 통장 <select name="account_id" class="account-select"></select></label>
+          <label>매달 빠지는 날 <input name="due_day" type="number" min="1" max="31" value="1" required></label>
+          <button>매달 자동 지출 추가</button>
+        </form>
+        <ul id="bill-list" class="txns"></ul>
+        <p class="hint">29~31일이 없는 달은 그 달 마지막 날에 기록합니다. 가계부 기록만 바뀌고 실제 은행에서는 돈이 빠지지 않습니다.</p>
+      </details>
+    </section>
+
+    <!-- 내역 화면 -->
+    <section id="view-history" hidden>
+      <section class="card">
+        <div class="seg" id="h-mode">
+          <button data-mode="day">하루</button><button data-mode="month" class="active">월별</button>
+          <button data-mode="range">기간 선택</button><button data-mode="year">1년</button>
+        </div>
+        <div class="nav-row" id="h-nav">
+          <button id="h-prev" aria-label="이전">‹</button>
+          <strong id="h-label"></strong>
+          <button id="h-next" aria-label="다음">›</button>
+        </div>
+        <div class="form inline" id="h-range" hidden>
+          <label>시작일 <input type="date" id="h-from"></label>
+          <label>종료일 <input type="date" id="h-to"></label>
+        </div>
+        <div class="form inline">
+          <label>종류 <select id="h-type">
+            <option value="all">전체 내역</option><option value="income">수입 내역</option>
+            <option value="expense">지출 내역</option><option value="transfer">이체 내역</option>
+          </select></label>
+          <label>분류별 보기 <select id="h-cat"></select></label>
+        </div>
+        <div class="sums">
+          <div id="h-income" class="sum income"></div>
+          <div id="h-expense" class="sum expense"></div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>기간 내역</h2>
+        <ul id="h-list" class="txns"></ul>
+      </section>
+    </section>
+
+    <!-- 통장 화면 -->
+    <section id="view-account" hidden>
+      <section class="card">
+        <button id="a-back" class="link">← 가계부로</button>
+        <h2 id="a-name"></h2>
+        <p id="a-balance" class="big"></p>
+        <div class="seg" id="a-mode">
+          <button data-mode="month" class="active">월별</button><button data-mode="year">1년</button>
+        </div>
+        <div class="nav-row">
+          <button id="a-prev" aria-label="이전">‹</button>
+          <strong id="a-label"></strong>
+          <button id="a-next" aria-label="다음">›</button>
+        </div>
+        <div id="a-chart" class="chart"></div>
+        <div class="sums">
+          <div id="a-income" class="sum income"></div>
+          <div id="a-expense" class="sum expense"></div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>기간 내역</h2>
+        <ul id="a-list" class="txns"></ul>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="edit-dialog">
+    <form id="edit-form" class="form" method="dialog"></form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="logic.js"></script>
+  <script src="store.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
