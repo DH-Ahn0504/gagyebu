@@ -3,35 +3,49 @@
   "use strict";
   const L = window.Logic;
   const S = window.Store;
+  const C = window.Charts;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const today = () => L.toDateStr(new Date());
   const fmt = L.formatCents;
+  const VIEWS = ["login", "main", "history", "accounts", "settings"];
 
   let data = null;
   let me = null;
   const state = {
     month: today().slice(0, 7),
     hist: { mode: "month", anchor: today(), from: today(), to: today(), type: "all", cat: "" },
-    acct: { id: null, mode: "month", anchor: today() },
+    acct: { id: "everyday", mode: "month", anchor: today() },
   };
+
+  // 세 사람 줄: 동현 · 같이 · 나윤 (통장으로 나눔)
+  const LANES = [
+    { key: "dh", name: "동현", initial: "동", accounts: ["donghyun_allowance"] },
+    { key: "us", name: "같이", initial: "같", accounts: ["everyday", "savings"] },
+    { key: "ny", name: "나윤", initial: "나", accounts: ["nayoon_allowance"] },
+  ];
+  const personClass = (name) => (name === "동현" ? "dh" : name === "나윤" ? "ny" : "");
+  const personInitial = (name) => (name === "동현" ? "동" : name === "나윤" ? "나" : name === "정기 지출" ? "자" : "?");
 
   const accountName = (id) => (data.accounts.find((a) => a.id === (id || "everyday")) || { name: id }).name;
   const accountOptions = (selected) =>
     data.accounts.map((a) => `<option value="${a.id}" ${a.id === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
   const catNames = (type) => data.categories.filter((c) => c.type === type).map((c) => c.name);
+  const money = (cents) => `<span class="num">${esc(fmt(cents))}</span>`;
+  const monthLabel = (ym) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`;
+  const shortDate = (d) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
 
-  // ---------- 내역 입력 폼 (새 입력과 수정에 같이 씀) ----------
-  function fillTxnForm(form, t, submitLabel, withCancel) {
+  // ---------- 내역 입력 창 (새 입력과 수정에 같이 씀) ----------
+  function fillTxnForm(form, t) {
     const type = t.type || "expense";
     const cats = catNames(type);
-    if (t.category && !cats.includes(t.category)) cats.push(t.category); // 지워진 분류도 수정 화면에선 유지
+    if (t.category && !cats.includes(t.category)) cats.push(t.category); // 지워진 분류도 수정할 땐 유지
     form.innerHTML = `
-      <div class="seg">
+      <div class="seg type-seg" role="group" aria-label="종류">
         ${["expense", "income", "transfer"].map((k) => `
-          <button type="button" data-type="${k}" class="${k === type ? "active" : ""}">${k === "transfer" ? "통장 이체" : L.TYPE_LABEL[k]}</button>`).join("")}
+          <button type="button" data-type="${k}" aria-pressed="${k === type}">${k === "transfer" ? "통장 이체" : L.TYPE_LABEL[k]}</button>`).join("")}
       </div>
-      <label>금액 (€) <input name="amount" inputmode="decimal" placeholder="예: 12,50" value="${t.amount_cents ? (t.amount_cents / 100).toFixed(2).replace(".", ",") : ""}" required></label>
+      <label>금액 (€) <input name="amount" inputmode="decimal" autocomplete="off" placeholder="12,50" value="${t.amount_cents ? (t.amount_cents / 100).toFixed(2).replace(".", ",") : ""}" required></label>
       <label>내용 <input name="description" maxlength="60" value="${esc(t.description)}" required></label>
       <label>날짜 <input name="date" type="date" value="${esc(t.date || today())}" required></label>
       <label>${type === "transfer" ? "보내는 통장" : "통장"} <select name="account_id">${accountOptions(t.account_id || "everyday")}</select></label>
@@ -40,12 +54,21 @@
         : `<label>분류 <select name="category">${cats.map((c) => `<option ${c === t.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`}
       <p class="error" role="alert"></p>
       <div class="row">
-        ${withCancel ? `<button type="button" data-cancel>취소</button>` : ""}
-        <button type="submit">${submitLabel}</button>
+        ${t.id ? `<button type="button" class="btn danger" data-delete>삭제</button>` : ""}
+        <button type="button" class="btn" data-cancel>취소</button>
+        <button type="submit" class="btn primary">${t.id ? "수정 저장" : "추가"}</button>
       </div>`;
     form.dataset.type = type;
     form.querySelectorAll("[data-type]").forEach((b) =>
-      b.addEventListener("click", () => fillTxnForm(form, { ...readFields(form), id: t.id, type: b.dataset.type }, submitLabel, withCancel)));
+      b.addEventListener("click", () => fillTxnForm(form, { ...readFields(form), id: t.id, type: b.dataset.type })));
+    form.querySelector("[data-cancel]").onclick = () => $("edit-dialog").close();
+    const del = form.querySelector("[data-delete]");
+    if (del) del.onclick = async () => {
+      if (!confirm(`'${t.description}' ${fmt(t.amount_cents)} 내역을 삭제할까요?`)) return;
+      await S.deleteTxn(t.id);
+      $("edit-dialog").close();
+      await refresh();
+    };
   }
 
   function readFields(form) {
@@ -70,82 +93,112 @@
     return "";
   }
 
-  async function submitTxn(form, original) {
-    const t = readFields(form);
-    const error = validate(t);
-    form.querySelector(".error").textContent = error;
-    if (error) return false;
-    if (original) await S.updateTxn({ ...t, id: original.id });
-    else await S.addTxn({ ...t, created_by: me.name });
-    await refresh();
-    return true;
+  function openTxn(t) {
+    const form = $("edit-form");
+    $("edit-title").textContent = t.id ? "내역 수정" : "내역 추가";
+    fillTxnForm(form, t);
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const v = readFields(form);
+      const error = validate(v);
+      form.querySelector(".error").textContent = error;
+      if (error) return;
+      if (t.id) await S.updateTxn({ ...v, id: t.id });
+      else await S.addTxn({ ...v, created_by: me.name });
+      $("edit-dialog").close();
+      await refresh();
+    };
+    $("edit-dialog").showModal();
+    form.amount.focus();
   }
+  const openNew = () => openTxn({ account_id: state.acct.id && !$("view-accounts").hidden ? state.acct.id : "everyday" });
 
-  // ---------- 내역 목록 ----------
-  function txnList(el, txns) {
-    if (!txns.length) { el.innerHTML = `<li class="empty">내역이 없습니다.</li>`; return; }
+  // ---------- 내역 줄 ----------
+  function txnRows(el, txns, empty) {
+    if (!txns.length) { el.innerHTML = `<li class="empty">${esc(empty)}</li>`; return; }
     el.innerHTML = txns.map((t) => {
       const sign = t.type === "income" ? "+" : t.type === "expense" ? "−" : "";
       const where = t.type === "transfer"
         ? `${esc(accountName(t.account_id))} → ${esc(accountName(t.transfer_account_id))}`
         : `${esc(accountName(t.account_id))} · ${esc(t.category || "분류 없음")}`;
-      return `<li>
-        <div><div>${esc(t.description)}</div><div class="meta">${esc(t.date)} · ${where} · ${esc(t.created_by || "")}</div></div>
-        <span class="amount ${t.type}">${sign}${fmt(t.amount_cents)}</span>
-        <span class="actions">
-          <button data-edit="${t.id}" aria-label="수정">✏️</button>
-          <button data-del="${t.id}" aria-label="삭제">🗑</button>
-        </span></li>`;
+      return `<li><button class="row-btn" data-edit="${esc(t.id)}" aria-label="${esc(t.description)} ${esc(fmt(t.amount_cents))} 수정">
+        <span class="avatar ${personClass(t.created_by)}" title="${esc(t.created_by)}">${esc(personInitial(t.created_by))}</span>
+        <span><span class="row-title" style="display:block">${esc(t.description)}</span><span class="row-sub" style="display:block">${esc(shortDate(t.date))} · ${where}</span></span>
+        <span class="row-amt num ${t.type}">${sign}${esc(fmt(t.amount_cents))}</span>
+      </button></li>`;
     }).join("");
   }
-
-  document.addEventListener("click", async (e) => {
+  document.addEventListener("click", (e) => {
     const edit = e.target.closest("[data-edit]");
-    const del = e.target.closest("[data-del]");
-    if (edit) openEdit(data.txns.find((t) => t.id === edit.dataset.edit));
-    if (del) {
-      const t = data.txns.find((x) => x.id === del.dataset.del);
-      if (t && confirm(`'${t.description}' ${fmt(t.amount_cents)} 내역을 삭제할까요?`)) { await S.deleteTxn(t.id); await refresh(); }
-    }
+    if (edit) openTxn(data.txns.find((t) => t.id === edit.dataset.edit));
+    const go = e.target.closest("[data-go]");
+    if (go) show(go.dataset.go);
+    if (e.target.closest("[data-add]")) openNew();
   });
 
-  function openEdit(t) {
-    const form = $("edit-form");
-    fillTxnForm(form, t, "수정 저장", true);
-    form.onsubmit = async (e) => { e.preventDefault(); if (await submitTxn(form, t)) $("edit-dialog").close(); };
-    form.querySelector("[data-cancel]").onclick = () => $("edit-dialog").close();
-    $("edit-dialog").showModal();
+  // ---------- 가계부 (첫 화면) ----------
+  // 이번 달에 아직 기록되지 않은 자동 지출 (매일 아침 Supabase가 기록함)
+  function billsLeft(ym) {
+    const [y, m] = ym.split("-").map(Number);
+    const last = new Date(y, m, 0).getDate();
+    return data.bills
+      .filter((b) => b.active && b.last_processed_month !== ym && !data.txns.some((t) => t.recurring_bill_id === b.id && t.recurring_month === ym))
+      .map((b) => ({ ...b, day: Math.min(b.due_day, last) }))
+      .sort((a, b) => a.day - b.day);
   }
 
-  // ---------- 가계부 화면 ----------
   function renderMain() {
-    const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
-    $("accounts").innerHTML = data.accounts.map((a) =>
-      `<button class="account" data-account="${a.id}"><small>${esc(a.name)}</small><strong>${fmt(bal[a.id])}</strong></button>`).join("");
-
-    const [start, end] = L.periodRange("month", state.month + "-01");
+    const ym = state.month;
+    const isNow = ym === today().slice(0, 7);
+    const [start, end] = L.periodRange("month", ym + "-01");
     const monthTxns = L.filterTxns(data.txns, { start, end });
     const sum = L.totals(monthTxns);
-    $("m-label").textContent = `${state.month.slice(0, 4)}년 ${Number(state.month.slice(5))}월`;
-    $("sum-income").innerHTML = `수입<b>${fmt(sum.income)}</b>`;
-    $("sum-expense").innerHTML = `지출<b>${fmt(sum.expense)}</b>`;
-    txnList($("month-list"), monthTxns);
+    const left = sum.income - sum.expense;
+    $("m-label").textContent = monthLabel(ym);
 
-    if (!$("balance-form").contains(document.activeElement)) $("balance-form").innerHTML = data.accounts.map((a) =>
-      `<label>${esc(a.name)} (€) <input name="${a.id}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
-      `<p class="error" role="alert"></p><button>현재 잔액 저장</button>`;
+    $("sum-h").textContent = `${Number(ym.slice(5))}월 지출`;
+    $("sum-expense").innerHTML = money(sum.expense);
+    $("sum-income").innerHTML = money(sum.income);
+    $("sum-left").innerHTML = `<span style="color:${left < 0 ? "var(--negative)" : "inherit"}">${left < 0 ? "−" : ""}${esc(fmt(Math.abs(left)))}</span>`;
 
-    for (const type of ["expense", "income"]) {
-      $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
-        `<li>${esc(name)}<button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
-    }
+    // 분류별 지출 (가장 큰 것만 분홍)
+    const byCat = {};
+    for (const t of monthTxns) if (t.type === "expense") byCat[t.category || "분류 없음"] = (byCat[t.category || "분류 없음"] || 0) + t.amount_cents;
+    const cats = Object.entries(byCat).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 6);
+    if (cats.length) C.barList($("cat-bars"), cats, { format: fmt, thin: true, colour: "var(--accent)" });
+    else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
 
-    document.querySelectorAll(".account-select").forEach((s) => { s.innerHTML = accountOptions(s.value || "everyday"); });
-    $("bill-list").innerHTML = data.bills.length ? data.bills.map((b) => `<li>
-      <div><div>${esc(b.description)}</div><div class="meta">매달 ${b.due_day}일 · ${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</div></div>
-      <span class="amount expense">−${fmt(b.amount_cents)}</span>
-      <span class="actions"><button data-delbill="${b.id}" aria-label="삭제">🗑</button></span></li>`).join("")
-      : `<li class="empty">등록된 자동 지출이 없습니다.</li>`;
+    // 동현 · 같이 · 나윤
+    const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
+    $("lanes").innerHTML = LANES.map((lane) => {
+      const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + t.amount_cents, 0);
+      return `<div class="lane">
+        <div class="lane-head"><span class="avatar ${lane.key === "us" ? "" : lane.key}" aria-hidden="true">${lane.initial}</span>${lane.name}</div>
+        <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${esc(fmt(spent))}</span></div>
+        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${esc(fmt(bal[id]))}</span></button>`).join("")}</div>
+      </div>`;
+    }).join("");
+    $("lanes-meta").innerHTML = `네 통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
+
+    txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`);
+
+    // 남은 자동 지출
+    const due = isNow ? billsLeft(ym) : [];
+    const dueSum = due.reduce((s, b) => s + b.amount_cents, 0);
+    $("bills-due").innerHTML = !isNow
+      ? `<li class="empty">이번 달 화면에서만 보여요.</li>`
+      : due.length
+        ? due.slice(0, 5).map((b) => `<li class="row-static">
+            <span class="day-chip"><b class="num">${b.day}</b>일</span>
+            <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}</span></span>
+            <span></span><span class="row-amt num">−${esc(fmt(b.amount_cents))}</span></li>`).join("")
+        : `<li class="empty">이번 달 자동 지출은 모두 기록됐어요.</li>`;
+    $("bills-total").innerHTML = due.length ? `<span>${due.length}건 합계</span><span class="num">−${esc(fmt(dueSum))}</span>` : "";
+
+    // 한 줄 요약 (이번 달에 가장 먼저 알아야 할 것)
+    $("main-finding").textContent = isNow && due.length
+      ? `${monthLabel(ym)} · 자동 지출 ${due.length}건 ${fmt(dueSum)}가 더 빠져요. 다음은 ${due[0].day}일 ${due[0].description}.`
+      : `${monthLabel(ym)} · 내역 ${monthTxns.length}건`;
   }
 
   // ---------- 내역 화면 ----------
@@ -155,14 +208,15 @@
     return `${Number(anchor.slice(0, 4)) + dir}-01-01`;
   }
   function periodLabel(mode, anchor) {
-    if (mode === "day") return anchor;
-    if (mode === "month") return `${anchor.slice(0, 4)}년 ${Number(anchor.slice(5, 7))}월`;
+    if (mode === "day") return shortDate(anchor);
+    if (mode === "month") return monthLabel(anchor.slice(0, 7));
     return `${anchor.slice(0, 4)}년`;
   }
+  const pressSeg = (el, attr, value) => el.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[attr] === value)));
 
   function renderHistory() {
     const h = state.hist;
-    document.querySelectorAll("#h-mode button").forEach((b) => b.classList.toggle("active", b.dataset.mode === h.mode));
+    pressSeg($("h-mode"), "mode", h.mode);
     $("h-nav").hidden = h.mode === "range";
     $("h-range").hidden = h.mode !== "range";
     $("h-label").textContent = periodLabel(h.mode, h.anchor);
@@ -173,81 +227,111 @@
     const [start, end] = L.periodRange(h.mode, h.anchor, h.from, h.to);
     const list = L.filterTxns(data.txns, { start, end, type: h.type, category: h.cat });
     const sum = L.totals(list);
-    $("h-income").innerHTML = `기간 수입<b>${fmt(sum.income)}</b>`;
-    $("h-expense").innerHTML = `기간 지출<b>${fmt(sum.expense)}</b>`;
-    txnList($("h-list"), list);
+    $("h-income").innerHTML = money(sum.income);
+    $("h-expense").innerHTML = money(sum.expense);
+    $("h-count").innerHTML = `<span class="num">${list.length}</span><span class="unit">건</span>`;
+    $("h-sub").textContent = h.mode === "range" ? `${shortDate(start)} ~ ${shortDate(end)}` : periodLabel(h.mode, h.anchor);
+    txnRows($("h-list"), list, "이 기간에는 내역이 없어요.");
   }
 
   // ---------- 통장 화면 ----------
-  function lineChart(points) {
-    const w = 360, h = 200, padL = 64, padB = 22, padT = 10; // 휴대폰 너비 기준이라 글자가 작아지지 않음
-    const vals = points.map((p) => p.cents);
-    let min = Math.min(...vals), max = Math.max(...vals);
-    if (min === max) { min -= 100; max += 100; }
-    const x = (i) => padL + (i * (w - padL - 10)) / Math.max(points.length - 1, 1);
-    const y = (v) => padT + ((max - v) * (h - padT - padB)) / (max - min);
-    const path = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.cents).toFixed(1)}`).join(" ");
-    const every = Math.ceil(points.length / 8);
-    return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="잔고 그래프">
-      ${[max, (max + min) / 2, min].map((v) => `
-        <line x1="${padL}" x2="${w - 10}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/>
-        <text x="${padL - 6}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${esc(fmt(Math.round(v)))}</text>`).join("")}
-      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>
-      ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.cents)}" r="2.5" fill="var(--accent)"><title>${esc(p.label)}: ${esc(fmt(p.cents))}</title></circle>`).join("")}
-      ${points.map((p, i) => (i % every === 0 ? `<text x="${x(i)}" y="${h - 6}" text-anchor="middle" font-size="10" fill="var(--muted)">${esc(p.label)}</text>` : "")).join("")}
-    </svg>`;
-  }
-
-  function renderAccount() {
-    const a = data.accounts.find((x) => x.id === state.acct.id);
-    if (!a) return;
+  function renderAccounts() {
+    const a = data.accounts.find((x) => x.id === state.acct.id) || data.accounts[0];
+    state.acct.id = a.id;
     const { mode, anchor } = state.acct;
-    document.querySelectorAll("#a-mode button").forEach((b) => b.classList.toggle("active", b.dataset.mode === mode));
+    $("a-tabs").innerHTML = data.accounts.map((x) => `<button data-account="${x.id}" aria-pressed="${x.id === a.id}">${esc(x.name)}</button>`).join("");
+    pressSeg($("a-mode"), "mode", mode);
     $("a-name").textContent = a.name;
-    $("a-balance").textContent = fmt(L.balanceOn(a, data.txns));
+    const lane = LANES.find((l) => l.accounts.includes(a.id));
+    $("a-sub").textContent = lane.name === "같이" ? "두 사람이 같이 쓰는 통장" : `${lane.name}의 용돈 통장`;
     $("a-label").textContent = periodLabel(mode, anchor);
-    $("a-chart").innerHTML = lineChart(L.balanceSeries(a, data.txns, mode, anchor));
+
+    const points = L.balanceSeries(a, data.txns, mode, anchor);
     const [start, end] = L.periodRange(mode, anchor);
+    const t = today();
+    let todayIdx = null;
+    if (t >= start && t <= end) todayIdx = mode === "month" ? Number(t.slice(8, 10)) - 1 : Number(t.slice(5, 7)) - 1;
+    const shown = todayIdx == null ? points.at(-1) : points[todayIdx];
+    $("a-balance").innerHTML = `${money(shown.cents)}<span class="unit">${todayIdx == null ? (mode === "month" ? " 월말" : " 연말") : " 오늘"}</span>`;
+    // 0부터 그리면 잔고 선이 위에 붙어 평평해 보여서, 실제 잔고 근처부터 그림
+    const vals = points.map((p) => p.cents);
+    const lo = Math.min(...vals), hi = Math.max(...vals);
+    C.line($("a-chart"), {
+      min: Math.max(0, lo - Math.max((hi - lo) * 0.6, Math.abs(lo) * 0.04, 1000)),
+      labels: points.map((p) => p.label),
+      series: [{ name: a.name, values: points.map((p) => p.cents) }],
+      format: fmt,
+      tickFormat: (v) => `${(v / 100).toLocaleString("de-DE", { maximumFractionDigits: 0 })} €`,
+      step: true, height: innerWidth > 1100 ? 300 : 200, today: todayIdx, todayLabel: "오늘", // 넓은 화면은 옆 목록 높이에 맞춤
+    });
+
     const list = L.filterTxns(data.txns, { start, end, accountId: a.id });
     const sum = L.totals(list, a.id);
-    $("a-income").innerHTML = `수입 합계<b>${fmt(sum.income)}</b>`;
-    $("a-expense").innerHTML = `지출 합계<b>${fmt(sum.expense)}</b>`;
-    txnList($("a-list"), list);
+    $("a-income").innerHTML = money(sum.income);
+    $("a-expense").innerHTML = money(sum.expense);
+    $("a-count").textContent = `${list.length}건`;
+    txnRows($("a-list"), list.slice(0, 8), "이 기간에는 내역이 없어요.");
+  }
+
+  // ---------- 설정 화면 ----------
+  function renderSettings() {
+    const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
+    if (!$("balance-form").contains(document.activeElement)) {
+      $("balance-form").innerHTML = data.accounts.map((a) =>
+        `<label>${esc(a.name)} (€) <input name="${a.id}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
+        `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
+    }
+    $("balance-total").textContent = `지금 네 통장 합계 ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
+    for (const type of ["expense", "income"]) {
+      $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
+        `<li>${esc(name)}<button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
+    }
+    document.querySelectorAll(".account-select").forEach((s) => { s.innerHTML = accountOptions(s.value || "everyday"); });
+    const bills = [...data.bills].sort((a, b) => a.due_day - b.due_day);
+    $("bill-total").textContent = bills.length ? `매달 ${bills.length}건 · 합계 ${fmt(bills.reduce((s, b) => s + b.amount_cents, 0))}` : "";
+    $("bill-list").innerHTML = bills.length ? bills.map((b) => `<li class="row-static">
+      <span class="day-chip"><b class="num">${b.due_day}</b>일</span>
+      <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</span></span>
+      <span class="row-amt num">−${esc(fmt(b.amount_cents))}</span>
+      <button class="text-btn" data-delbill="${esc(b.id)}" aria-label="${esc(b.description)} 자동 지출 삭제">삭제</button></li>`).join("")
+      : `<li class="empty">등록된 자동 지출이 없어요.</li>`;
   }
 
   // ---------- 화면 전환 ----------
   function show(view) {
-    for (const v of ["login", "main", "history", "account"]) $(`view-${v}`).hidden = v !== view;
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    for (const v of VIEWS) $(`view-${v}`).hidden = v !== view;
+    document.querySelectorAll(".nav-item").forEach((b) => (b.dataset.view === view ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+    $("month-switch").hidden = view !== "main";
+    $("crumb").hidden = view === "main";
+    $("crumb").textContent = { history: "내역", accounts: "통장", settings: "설정" }[view] || "";
     window.scrollTo(0, 0);
     render();
   }
-  const current = () => ["main", "history", "account"].find((v) => !$(`view-${v}`).hidden);
+  const current = () => VIEWS.find((v) => !$(`view-${v}`).hidden);
   function render() {
     const v = current();
     if (v === "main") renderMain();
     if (v === "history") renderHistory();
-    if (v === "account") renderAccount();
+    if (v === "accounts") renderAccounts();
+    if (v === "settings") renderSettings();
   }
   async function refresh() { data = await S.load(); render(); }
 
   // ---------- 버튼 연결 ----------
-  document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
+  document.querySelectorAll(".nav-item").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
   $("m-prev").onclick = () => { state.month = L.addMonths(state.month, -1); renderMain(); };
   $("m-next").onclick = () => { state.month = L.addMonths(state.month, 1); renderMain(); };
+  $("add-btn").onclick = openNew;
   const openHistory = (type) => { Object.assign(state.hist, { mode: "month", anchor: state.month + "-01", type, cat: "" }); show("history"); };
   $("sum-income").onclick = () => openHistory("income");
   $("sum-expense").onclick = () => openHistory("expense");
-  $("accounts").addEventListener("click", (e) => {
+  document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-account]");
-    if (b) { Object.assign(state.acct, { id: b.dataset.account, mode: "month", anchor: today() }); show("account"); }
-  });
-
-  const txnForm = $("txn-form");
-  txnForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const keep = { type: txnForm.dataset.type, date: txnForm.date.value, account_id: txnForm.account_id.value };
-    if (await submitTxn(txnForm)) fillTxnForm(txnForm, keep, "내역 추가하기", false);
+    if (!b) return;
+    const fromTabs = b.closest("#a-tabs");
+    state.acct.id = b.dataset.account;
+    if (!fromTabs) Object.assign(state.acct, { mode: "month", anchor: today() });
+    if (current() === "accounts") renderAccounts(); else show("accounts");
   });
 
   $("balance-form").addEventListener("submit", async (e) => {
@@ -260,6 +344,7 @@
       bases[a.id] = L.baseFor(a.id, cents, data.txns);
     }
     await S.setBases(bases);
+    document.activeElement.blur();
     await refresh();
   });
 
@@ -290,7 +375,7 @@
     await refresh();
   });
 
-  document.querySelectorAll("#h-mode button").forEach((b) => b.addEventListener("click", () => { state.hist.mode = b.dataset.mode; renderHistory(); }));
+  $("h-mode").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { state.hist.mode = b.dataset.mode; renderHistory(); }));
   $("h-prev").onclick = () => { state.hist.anchor = stepAnchor(state.hist.mode, state.hist.anchor, -1); renderHistory(); };
   $("h-next").onclick = () => { state.hist.anchor = stepAnchor(state.hist.mode, state.hist.anchor, 1); renderHistory(); };
   $("h-from").value = state.hist.from;
@@ -300,31 +385,40 @@
   $("h-type").onchange = (e) => { state.hist.type = e.target.value; renderHistory(); };
   $("h-cat").onchange = (e) => { state.hist.cat = e.target.value; renderHistory(); };
 
-  $("a-back").onclick = () => show("main");
-  document.querySelectorAll("#a-mode button").forEach((b) => b.addEventListener("click", () => { state.acct.mode = b.dataset.mode; renderAccount(); }));
-  $("a-prev").onclick = () => { state.acct.anchor = stepAnchor(state.acct.mode, state.acct.anchor, -1); renderAccount(); };
-  $("a-next").onclick = () => { state.acct.anchor = stepAnchor(state.acct.mode, state.acct.anchor, 1); renderAccount(); };
+  $("a-all").onclick = () => { Object.assign(state.hist, { mode: state.acct.mode, anchor: state.acct.anchor, type: "all", cat: "" }); show("history"); };
+  $("a-mode").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { state.acct.mode = b.dataset.mode; renderAccounts(); }));
+  $("a-prev").onclick = () => { state.acct.anchor = stepAnchor(state.acct.mode, state.acct.anchor, -1); renderAccounts(); };
+  $("a-next").onclick = () => { state.acct.anchor = stepAnchor(state.acct.mode, state.acct.anchor, 1); renderAccounts(); };
 
   // ---------- 로그인 ----------
   window.addEventListener("unhandledrejection", (e) => alert("문제가 생겼습니다: " + (e.reason && e.reason.message || e.reason)));
+  const shell = document.querySelector(".shell");
+  const loggedIn = (yes) => {
+    shell.classList.toggle("logged-out", !yes);
+    for (const id of ["side", "topbar", "tabbar"]) $(id).hidden = !yes;
+  };
 
   async function start() {
     me = await S.me();
-    if (!me) { show("login"); return; }
-    if (!me.name) {
-      await S.signOut();
+    if (!me || !me.name) {
+      if (me && !me.name) {
+        await S.signOut();
+        $("login-form").querySelector(".error").textContent = `${me.email}은(는) 허락된 이메일이 아닙니다.`;
+      }
+      loggedIn(false);
       show("login");
-      $("login-form").querySelector(".error").textContent = `${me.email}은(는) 허락된 이메일이 아닙니다.`;
       return;
     }
     $("me").textContent = `${me.name}님`;
-    $("logout").hidden = false;
-    $("tabs").hidden = false;
+    $("me-avatar").textContent = personInitial(me.name);
+    $("me-avatar").className = `avatar ${personClass(me.name)}`;
+    loggedIn(true);
     await S.runRecurring(today());
     data = await S.load();
-    fillTxnForm(txnForm, {}, "내역 추가하기", false); // 통장 목록이 필요해서 불러온 뒤에 그림
     show("main");
-    S.photoUrl().then((url) => { if (url) { $("photo").src = url; $("photo").hidden = false; } });
+    const url = await S.photoUrl();
+    if (url) { $("photo").src = url; $("photo-frame").hidden = false; }
+    document.querySelector(".summary").classList.toggle("no-photo", !url);
   }
 
   const loginForm = $("login-form");
@@ -346,7 +440,8 @@
 
   // 상대방이 적은 내역을 15초마다 불러옴 (입력·수정 중에는 건너뜀)
   setInterval(() => {
-    if (!me || !me.name || document.hidden || $("edit-dialog").open || !$("view-login").hidden) return;
+    if (!me || !me.name || document.hidden || $("edit-dialog").open || current() === "login") return;
+    if (document.activeElement && document.activeElement.closest("form")) return;
     refresh();
   }, 15000);
 

@@ -10,6 +10,7 @@
       const data = JSON.parse(localStorage.getItem(KEY));
       if (data) return data;
     } catch (e) { /* 깨진 값이면 새로 시작 */ }
+    if (root.GAGYEBU_SEED) return JSON.parse(JSON.stringify(root.GAGYEBU_SEED)); // dev-seed.js의 예시 기록
     return {
       accounts: L.ACCOUNTS.map((a) => ({ ...a, base_cents: 0 })),
       txns: [],
@@ -22,7 +23,7 @@
 
   root.Store = {
     async me() { return { email: "local", name: "동현" }; },
-    async photoUrl() { return null; },
+    async photoUrl() { return root.GAGYEBU_TEST_PHOTO || null; },
     async signOut() {},
     async load() { return read(); },
     async addTxn(t) { change((d) => d.txns.push({ ...t, id: newId(), created_at: new Date().toISOString() })); },

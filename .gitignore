@@ -4,3 +4,7 @@ import/
 # 이메일 주소가 들어 있는 설정 파일
 supabase/
 _test.html
+dev-seed.js
+_photo.webp
+# taste-skill 검사 결과·스크린샷
+.taste-skill/

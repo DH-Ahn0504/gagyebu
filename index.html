@@ -3,167 +3,215 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#14161b">
+  <meta name="theme-color" content="#0e0d0c">
   <title>하푸들의 가계부</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <h1>하푸들의 가계부</h1>
-    <nav class="tabs" id="tabs" hidden>
-      <button class="tab active" data-view="main">가계부</button>
-      <button class="tab" data-view="history">내역</button>
-    </nav>
-    <span class="who"><span id="me"></span><button id="logout" hidden>로그아웃</button></span>
-  </header>
+  <div class="shell">
+    <!-- 왼쪽 메뉴 (휴대폰에서는 아래 막대) -->
+    <aside class="side" id="side" hidden>
+      <div class="brand"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+      <nav class="nav" aria-label="메뉴">
+        <button class="nav-item" data-view="main">가계부</button>
+        <button class="nav-item" data-view="history">내역</button>
+        <button class="nav-item" data-view="accounts">통장</button>
+        <button class="nav-item" data-view="settings">설정</button>
+      </nav>
+    </aside>
 
-  <main>
-    <!-- 로그인 화면 -->
-    <section id="view-login" hidden>
-      <section class="card">
-        <h2>로그인</h2>
-        <form id="login-form" class="form">
-          <label>이메일 <input name="email" type="email" autocomplete="email" required></label>
-          <label>비밀번호 <input name="password" type="password" autocomplete="current-password" minlength="8" required></label>
-          <p class="error" role="alert"></p>
-          <div class="row">
-            <button type="button" id="signup">처음이에요 (가입)</button>
-            <button type="submit">로그인</button>
+    <header class="topbar" id="topbar" hidden>
+      <div class="brand brand-phone"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+      <div class="month" id="month-switch">
+        <button class="icon-btn" id="m-prev" aria-label="이전 달">‹</button>
+        <strong id="m-label"></strong>
+        <button class="icon-btn" id="m-next" aria-label="다음 달">›</button>
+      </div>
+      <strong class="crumb" id="crumb" hidden></strong>
+      <div class="who"><span class="avatar" id="me-avatar" aria-hidden="true"></span><span id="me"></span><button class="text-btn" id="logout">로그아웃</button></div>
+    </header>
+
+    <main class="canvas">
+      <!-- 가계부 (첫 화면) -->
+      <section id="view-main" class="view" hidden>
+        <div class="title-row">
+          <div>
+            <h1 id="main-title">하푸들의 가계부</h1>
+            <p class="sub" id="main-finding"></p>
           </div>
-        </form>
-        <p class="hint">허락된 두 사람의 이메일만 가계부를 볼 수 있습니다. 처음 가입하면 확인 메일이 오니, 메일의 링크를 누른 뒤 로그인하세요.</p>
-      </section>
-    </section>
-
-    <!-- 가계부 화면 -->
-    <section id="view-main" hidden>
-      <img id="photo" class="photo" alt="동현과 나윤" hidden>
-      <section class="card">
-        <h2>통장 잔고</h2>
-        <div id="accounts" class="accounts"></div>
-      </section>
-
-      <section class="card">
-        <div class="nav-row">
-          <button id="m-prev" aria-label="이전 달">‹</button>
-          <strong id="m-label"></strong>
-          <button id="m-next" aria-label="다음 달">›</button>
+          <button class="btn primary" id="add-btn">+ 내역 추가</button>
         </div>
-        <div class="sums">
-          <button id="sum-income" class="sum income"></button>
-          <button id="sum-expense" class="sum expense"></button>
-        </div>
-      </section>
 
-      <section class="card">
-        <h2>새 내역 입력</h2>
-        <form id="txn-form" class="form"></form>
-      </section>
+        <div class="grid-main">
+          <!-- 이번 달: 사진 + 지출 -->
+          <section class="panel summary span-all" aria-labelledby="sum-h">
+            <figure class="photo-frame" id="photo-frame" hidden>
+              <img id="photo" alt="동현과 나윤">
+            </figure>
+            <div class="sum-figures">
+              <h2 id="sum-h" class="label">이번 달 지출</h2>
+              <button class="figure lead num" id="sum-expense" aria-label="이번 달 지출 내역 보기"></button>
+              <div class="pair">
+                <div><span class="label">수입</span><button class="figure num" id="sum-income" aria-label="이번 달 수입 내역 보기"></button></div>
+                <div><span class="label">남은 돈 (수입 − 지출)</span><span class="figure num" id="sum-left"></span></div>
+              </div>
+            </div>
+            <div class="sum-cats">
+              <h2 class="label">분류별 지출</h2>
+              <div id="cat-bars"></div>
+            </div>
+          </section>
 
-      <section class="card">
-        <h2>선택한 달 내역</h2>
-        <ul id="month-list" class="txns"></ul>
-      </section>
+          <!-- 동현 · 같이 · 나윤 -->
+          <section class="panel lanes span-all" aria-labelledby="lanes-h">
+            <div class="panel-head"><h2 id="lanes-h">동현 · 같이 · 나윤</h2><span class="meta" id="lanes-meta"></span></div>
+            <div class="lane-grid" id="lanes"></div>
+          </section>
 
-      <details class="card">
-        <summary>통장 현재 잔액 설정</summary>
-        <form id="balance-form" class="form"></form>
-      </details>
+          <section class="panel" aria-labelledby="recent-h">
+            <div class="panel-head"><h2 id="recent-h">최근 내역</h2><button class="text-btn" data-go="history">전체 보기</button></div>
+            <ul class="rows" id="month-list"></ul>
+          </section>
 
-      <details class="card">
-        <summary>수입·지출 분류 관리</summary>
-        <form id="cat-form" class="form inline">
-          <label>분류 종류 <select name="type"><option value="expense">지출</option><option value="income">수입</option></select></label>
-          <label>새 분류 이름 <input name="name" maxlength="20" required></label>
-          <button>분류 추가</button>
-        </form>
-        <h3>지출 분류</h3><ul id="cat-expense" class="chips"></ul>
-        <h3>수입 분류</h3><ul id="cat-income" class="chips"></ul>
-      </details>
-
-      <details class="card">
-        <summary>매달 자동으로 빠지는 돈</summary>
-        <form id="bill-form" class="form">
-          <label>내용 <input name="description" maxlength="60" required></label>
-          <label>매달 금액 (€) <input name="amount" inputmode="decimal" required></label>
-          <label>빠져나갈 통장 <select name="account_id" class="account-select"></select></label>
-          <label>매달 빠지는 날 <input name="due_day" type="number" min="1" max="31" value="1" required></label>
-          <button>매달 자동 지출 추가</button>
-        </form>
-        <ul id="bill-list" class="txns"></ul>
-        <p class="hint">29~31일이 없는 달은 그 달 마지막 날에 기록합니다. 가계부 기록만 바뀌고 실제 은행에서는 돈이 빠지지 않습니다.</p>
-      </details>
-    </section>
-
-    <!-- 내역 화면 -->
-    <section id="view-history" hidden>
-      <section class="card">
-        <div class="seg" id="h-mode">
-          <button data-mode="day">하루</button><button data-mode="month" class="active">월별</button>
-          <button data-mode="range">기간 선택</button><button data-mode="year">1년</button>
-        </div>
-        <div class="nav-row" id="h-nav">
-          <button id="h-prev" aria-label="이전">‹</button>
-          <strong id="h-label"></strong>
-          <button id="h-next" aria-label="다음">›</button>
-        </div>
-        <div class="form inline" id="h-range" hidden>
-          <label>시작일 <input type="date" id="h-from"></label>
-          <label>종료일 <input type="date" id="h-to"></label>
-        </div>
-        <div class="form inline">
-          <label>종류 <select id="h-type">
-            <option value="all">전체 내역</option><option value="income">수입 내역</option>
-            <option value="expense">지출 내역</option><option value="transfer">이체 내역</option>
-          </select></label>
-          <label>분류별 보기 <select id="h-cat"></select></label>
-        </div>
-        <div class="sums">
-          <div id="h-income" class="sum income"></div>
-          <div id="h-expense" class="sum expense"></div>
+          <section class="panel pinned-foot" aria-labelledby="bills-h">
+            <div class="panel-head"><h2 id="bills-h">이번 달 남은 자동 지출</h2><button class="text-btn" data-go="settings">관리</button></div>
+            <ul class="rows" id="bills-due"></ul>
+            <p class="foot-total" id="bills-total"></p>
+          </section>
         </div>
       </section>
-      <section class="card">
-        <h2>기간 내역</h2>
-        <ul id="h-list" class="txns"></ul>
-      </section>
-    </section>
 
-    <!-- 통장 화면 -->
-    <section id="view-account" hidden>
-      <section class="card">
-        <button id="a-back" class="link">← 가계부로</button>
-        <h2 id="a-name"></h2>
-        <p id="a-balance" class="big"></p>
-        <div class="seg" id="a-mode">
-          <button data-mode="month" class="active">월별</button><button data-mode="year">1년</button>
-        </div>
-        <div class="nav-row">
-          <button id="a-prev" aria-label="이전">‹</button>
-          <strong id="a-label"></strong>
-          <button id="a-next" aria-label="다음">›</button>
-        </div>
-        <div id="a-chart" class="chart"></div>
-        <div class="sums">
-          <div id="a-income" class="sum income"></div>
-          <div id="a-expense" class="sum expense"></div>
-        </div>
+      <!-- 내역 -->
+      <section id="view-history" class="view" hidden>
+        <div class="title-row"><div><h1>내역</h1><p class="sub" id="h-sub"></p></div><button class="btn primary" data-add>+ 내역 추가</button></div>
+        <section class="panel">
+          <div class="controls">
+            <div class="seg" id="h-mode" role="group" aria-label="기간">
+              <button data-mode="day">하루</button><button data-mode="month">월별</button><button data-mode="range">기간</button><button data-mode="year">1년</button>
+            </div>
+            <div class="stepper" id="h-nav"><button class="icon-btn" id="h-prev" aria-label="이전">‹</button><strong id="h-label"></strong><button class="icon-btn" id="h-next" aria-label="다음">›</button></div>
+            <div class="range" id="h-range" hidden>
+              <label>시작일 <input type="date" id="h-from"></label><label>종료일 <input type="date" id="h-to"></label>
+            </div>
+            <label class="select">종류 <select id="h-type">
+              <option value="all">전체</option><option value="income">수입</option><option value="expense">지출</option><option value="transfer">이체</option>
+            </select></label>
+            <label class="select">분류 <select id="h-cat"></select></label>
+          </div>
+          <div class="strip">
+            <div><span class="label">기간 수입</span><span class="figure num" id="h-income"></span></div>
+            <div><span class="label">기간 지출</span><span class="figure num" id="h-expense"></span></div>
+            <div><span class="label">건수</span><span class="figure num" id="h-count"></span></div>
+          </div>
+          <ul class="rows" id="h-list"></ul>
+        </section>
       </section>
-      <section class="card">
-        <h2>기간 내역</h2>
-        <ul id="a-list" class="txns"></ul>
-      </section>
-    </section>
-  </main>
 
-  <dialog id="edit-dialog">
-    <form id="edit-form" class="form" method="dialog"></form>
+      <!-- 통장 -->
+      <section id="view-accounts" class="view" hidden>
+        <div class="title-row"><div><h1 id="a-name">통장</h1><p class="sub" id="a-sub"></p></div><button class="btn primary" data-add>+ 내역 추가</button></div>
+        <div class="seg acct-tabs" id="a-tabs" role="group" aria-label="통장 고르기"></div>
+        <div class="grid-acct">
+          <section class="panel" aria-labelledby="a-chart-h">
+            <div class="panel-head">
+              <h2 id="a-chart-h">잔고</h2>
+              <div class="head-controls">
+                <div class="seg" id="a-mode" role="group" aria-label="기간"><button data-mode="month">월별</button><button data-mode="year">1년</button></div>
+                <div class="stepper"><button class="icon-btn" id="a-prev" aria-label="이전">‹</button><strong id="a-label"></strong><button class="icon-btn" id="a-next" aria-label="다음">›</button></div>
+              </div>
+            </div>
+            <p class="figure lead num" id="a-balance"></p>
+            <div id="a-chart" class="chart"></div>
+            <div class="strip">
+              <div><span class="label">수입 합계</span><span class="figure num" id="a-income"></span></div>
+              <div><span class="label">지출 합계</span><span class="figure num" id="a-expense"></span></div>
+            </div>
+          </section>
+          <section class="panel pinned-foot" aria-labelledby="a-list-h">
+            <div class="panel-head"><h2 id="a-list-h">기간 내역</h2><span class="meta" id="a-count"></span></div>
+            <ul class="rows" id="a-list"></ul>
+            <p class="foot-total"><button class="text-btn" id="a-all">이 기간 전체 내역 보기</button><span></span></p>
+          </section>
+        </div>
+      </section>
+
+      <!-- 설정 -->
+      <section id="view-settings" class="view" hidden>
+        <div class="title-row"><div><h1>설정</h1><p class="sub">통장 잔액, 분류, 매달 자동으로 빠지는 돈</p></div></div>
+
+        <div class="setting">
+          <div class="setting-label"><h2>통장 현재 잔액</h2><p>은행 앱의 실제 잔액을 넣으면, 지금까지의 내역은 그대로 두고 잔액만 맞춥니다.</p><p class="meta" id="balance-total"></p></div>
+          <form id="balance-form" class="panel form"></form>
+        </div>
+
+        <div class="setting">
+          <div class="setting-label"><h2>수입·지출 분류</h2><p>두 사람이 함께 씁니다. 분류를 지워도 예전 내역의 분류는 남습니다.</p></div>
+          <div class="panel">
+            <form id="cat-form" class="form inline">
+              <label>종류 <select name="type"><option value="expense">지출</option><option value="income">수입</option></select></label>
+              <label>새 분류 이름 <input name="name" maxlength="20" required></label>
+              <button class="btn">분류 추가</button>
+            </form>
+            <h3 class="label">지출</h3><ul id="cat-expense" class="chips"></ul>
+            <h3 class="label">수입</h3><ul id="cat-income" class="chips"></ul>
+          </div>
+        </div>
+
+        <div class="setting">
+          <div class="setting-label"><h2>매달 자동으로 빠지는 돈</h2><p>정한 날이 되면 매일 아침 공과금으로 기록합니다. 29~31일이 없는 달은 그 달 마지막 날. 실제 은행에서는 돈이 빠지지 않습니다.</p><p class="meta" id="bill-total"></p></div>
+          <div class="panel">
+            <ul class="rows" id="bill-list"></ul>
+            <form id="bill-form" class="form inline">
+              <label>내용 <input name="description" maxlength="60" required></label>
+              <label>매달 금액 (€) <input name="amount" inputmode="decimal" required></label>
+              <label>빠져나갈 통장 <select name="account_id" class="account-select"></select></label>
+              <label>매달 빠지는 날 <input name="due_day" type="number" min="1" max="31" value="1" required></label>
+              <button class="btn">자동 지출 추가</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- 로그인 (맨 뒤에 둠: 화면마다 첫 h1이 그 화면의 제목이 되도록) -->
+      <section id="view-login" class="login" hidden>
+        <div class="panel login-panel">
+          <div class="brand"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+          <h1>로그인</h1>
+          <form id="login-form" class="form">
+            <label>이메일 <input name="email" type="email" autocomplete="email" required></label>
+            <label>비밀번호 <input name="password" type="password" autocomplete="current-password" minlength="8" required></label>
+            <p class="error" role="alert"></p>
+            <div class="row">
+              <button type="button" class="btn" id="signup">처음이에요 (가입)</button>
+              <button type="submit" class="btn primary">로그인</button>
+            </div>
+          </form>
+          <p class="note">허락된 두 사람의 이메일만 가계부를 볼 수 있습니다.</p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="tabbar" id="tabbar" aria-label="메뉴" hidden>
+      <button class="nav-item" data-view="main">가계부</button>
+      <button class="nav-item" data-view="history">내역</button>
+      <button class="nav-item" data-view="accounts">통장</button>
+      <button class="nav-item" data-view="settings">설정</button>
+    </nav>
+  </div>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <h2 id="edit-title">내역</h2>
+    <form id="edit-form" class="form"></form>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
   <script src="config.js"></script>
   <script src="logic.js"></script>
   <script src="store.js"></script>
+  <script src="vendor/charts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
