@@ -18,10 +18,10 @@
     acct: { id: "everyday", mode: "month", anchor: today() },
   };
 
-  // 세 사람 줄: 동현 · 같이 · 나윤 (통장으로 나눔)
+  // 세 사람 줄: 동현 · 함께 · 나윤 (통장으로 나눔)
   const LANES = [
     { key: "dh", name: "동현", initial: "동", accounts: ["donghyun_allowance"] },
-    { key: "us", name: "같이", initial: "같", accounts: ["everyday", "savings"] },
+    { key: "us", name: "함께", initial: "함", accounts: ["everyday", "savings"] },
     { key: "ny", name: "나윤", initial: "나", accounts: ["nayoon_allowance"] },
   ];
   const personClass = (name) => (name === "동현" ? "dh" : name === "나윤" ? "ny" : "");
@@ -111,6 +111,15 @@
     $("edit-dialog").showModal();
     form.amount.focus();
   }
+  // 아이폰: 키보드가 올라오면 입력창(시트)을 키보드 위로 밀어 올림 (키보드 높이를 CSS 변수로 전달)
+  if (window.visualViewport) {
+    const vv = visualViewport, dlg = $("edit-dialog");
+    const fit = () => {
+      dlg.style.setProperty("--kb", Math.max(0, innerHeight - vv.height - vv.offsetTop) + "px");
+      dlg.style.setProperty("--vvh", vv.height + "px");
+    };
+    vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit);
+  }
   const openNew = () => openTxn({ account_id: state.acct.id && !$("view-accounts").hidden ? state.acct.id : "everyday" });
 
   // ---------- 내역 줄 ----------
@@ -153,13 +162,11 @@
     const [start, end] = L.periodRange("month", ym + "-01");
     const monthTxns = L.filterTxns(data.txns, { start, end });
     const sum = L.totals(monthTxns);
-    const left = sum.income - sum.expense;
     $("m-label").textContent = monthLabel(ym);
 
     $("sum-h").textContent = `${Number(ym.slice(5))}월 지출`;
     $("sum-expense").innerHTML = money(sum.expense);
     $("sum-income").innerHTML = money(sum.income);
-    $("sum-left").innerHTML = `<span style="color:${left < 0 ? "var(--negative)" : "inherit"}">${left < 0 ? "−" : ""}${esc(fmt(Math.abs(left)))}</span>`;
 
     // 분류별 지출 (가장 큰 것만 분홍)
     const byCat = {};
@@ -168,7 +175,7 @@
     if (cats.length) C.barList($("cat-bars"), cats, { format: fmt, thin: true, colour: "var(--accent)" });
     else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
 
-    // 동현 · 같이 · 나윤
+    // 동현 · 함께 · 나윤
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     $("lanes").innerHTML = LANES.map((lane) => {
       const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + t.amount_cents, 0);
@@ -178,7 +185,7 @@
         <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${esc(fmt(bal[id]))}</span></button>`).join("")}</div>
       </div>`;
     }).join("");
-    $("lanes-meta").innerHTML = `네 통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
+    $("lanes-meta").innerHTML = `통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
 
     txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`);
 
@@ -243,7 +250,7 @@
     pressSeg($("a-mode"), "mode", mode);
     $("a-name").textContent = a.name;
     const lane = LANES.find((l) => l.accounts.includes(a.id));
-    $("a-sub").textContent = lane.name === "같이" ? "두 사람이 같이 쓰는 통장" : `${lane.name}의 용돈 통장`;
+    $("a-sub").textContent = lane.name === "함께" ? "두 사람이 함께 쓰는 통장" : `${lane.name}의 용돈 통장`;
     $("a-label").textContent = periodLabel(mode, anchor);
 
     const points = L.balanceSeries(a, data.txns, mode, anchor);
@@ -281,7 +288,7 @@
         `<label>${esc(a.name)} (€) <input name="${a.id}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
         `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
     }
-    $("balance-total").textContent = `지금 네 통장 합계 ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
+    $("balance-total").textContent = `지금 통장 합계${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
     for (const type of ["expense", "income"]) {
       $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
         `<li>${esc(name)}<button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");

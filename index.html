@@ -2,9 +2,14 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0e0d0c">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1411">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="가계부">
   <title>하푸들의 가계부</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
@@ -14,7 +19,7 @@
   <div class="shell">
     <!-- 왼쪽 메뉴 (휴대폰에서는 아래 막대) -->
     <aside class="side" id="side" hidden>
-      <div class="brand"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+      <div class="brand"><img class="mark" src="icon.svg" alt="" aria-hidden="true"><span>하푸들의 가계부</span></div>
       <nav class="nav" aria-label="메뉴">
         <button class="nav-item" data-view="main">가계부</button>
         <button class="nav-item" data-view="history">내역</button>
@@ -24,7 +29,7 @@
     </aside>
 
     <header class="topbar" id="topbar" hidden>
-      <div class="brand brand-phone"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+      <div class="brand brand-phone"><img class="mark" src="icon.svg" alt="" aria-hidden="true"><span>하푸들의 가계부</span></div>
       <div class="month" id="month-switch">
         <button class="icon-btn" id="m-prev" aria-label="이전 달">‹</button>
         <strong id="m-label"></strong>
@@ -52,11 +57,9 @@
               <img id="photo" alt="동현과 나윤">
             </figure>
             <div class="sum-figures">
-              <h2 id="sum-h" class="label">이번 달 지출</h2>
-              <button class="figure lead num" id="sum-expense" aria-label="이번 달 지출 내역 보기"></button>
               <div class="pair">
-                <div><span class="label">수입</span><button class="figure num" id="sum-income" aria-label="이번 달 수입 내역 보기"></button></div>
-                <div><span class="label">남은 돈 (수입 − 지출)</span><span class="figure num" id="sum-left"></span></div>
+                <div><h2 id="sum-h" class="label">이번 달 지출</h2><button class="figure lead num" id="sum-expense" aria-label="이번 달 지출 내역 보기"></button></div>
+                <div><span class="label">수입</span><button class="figure lead num" id="sum-income" aria-label="이번 달 수입 내역 보기"></button></div>
               </div>
             </div>
             <div class="sum-cats">
@@ -65,9 +68,9 @@
             </div>
           </section>
 
-          <!-- 동현 · 같이 · 나윤 -->
+          <!-- 동현 · 함께 · 나윤 -->
           <section class="panel lanes span-all" aria-labelledby="lanes-h">
-            <div class="panel-head"><h2 id="lanes-h">동현 · 같이 · 나윤</h2><span class="meta" id="lanes-meta"></span></div>
+            <div class="panel-head"><h2 id="lanes-h">동현 · 함께 · 나윤</h2><span class="meta" id="lanes-meta"></span></div>
             <div class="lane-grid" id="lanes"></div>
           </section>
 
@@ -173,12 +176,17 @@
             </form>
           </div>
         </div>
+
+        <div class="setting">
+          <div class="setting-label"><h2>눈 내리는 효과</h2><p>겨울 동안 화면 위로 눈이 내립니다. 눈이 거슬리거나 배터리가 걱정되면 끄세요.</p></div>
+          <div class="panel"><button class="btn" id="snow-toggle" aria-pressed="true">눈 끄기</button></div>
+        </div>
       </section>
 
       <!-- 로그인 (맨 뒤에 둠: 화면마다 첫 h1이 그 화면의 제목이 되도록) -->
       <section id="view-login" class="login" hidden>
         <div class="panel login-panel">
-          <div class="brand"><span class="mark" aria-hidden="true">하</span><span>하푸들의 가계부</span></div>
+          <div class="brand"><img class="mark" src="icon.svg" alt="" aria-hidden="true"><span>하푸들의 가계부</span></div>
           <h1>로그인</h1>
           <form id="login-form" class="form">
             <label>이메일 <input name="email" type="email" autocomplete="email" required></label>
@@ -213,5 +221,6 @@
   <script src="store.js"></script>
   <script src="vendor/charts.js"></script>
   <script src="app.js"></script>
+  <script src="snow.js"></script>
 </body>
 </html>
