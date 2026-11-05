@@ -1,6 +1,7 @@
 /* 하푸들의 가계부 · taste-skill app 스타일 true-black-flat (seed 35864305) · 겨울/크리스마스 색
    얼굴: 바탕은 한겨울 소나무 숲 같은 짙은 초록, 글자는 눈색, 데이터 색 하나는 촛불 금색,
-   주요 버튼 하나만 크랜베리 빨강. 층은 밝기로만 나눔 (#0b1411 바탕 → #121f1a 카드 → #1b2d26 안쪽 칸). 카드에 테두리·그림자 없음. */
+   주요 버튼 하나만 크랜베리 빨강. 층은 밝기로 나누고, 카드에는 눈 서리 같은 아주 옅은 1px 윤곽만 둠 (그림자 없음, 떠 있는 입력창만 예외).
+   겨울 포인트는 두 곳뿐: 카드 서리 윤곽, 이번 달 카드 위쪽의 촛불빛. 더 늘리지 않음. */
 :root {
   --ground: #0b1411;
   --surface: #121f1a;
@@ -28,8 +29,8 @@
   --radius-card: 20px;
   --radius-inner: 12px;
   --radius-control: 999px;
-  --gap: 14px;
-  --pad: 22px;
+  --gap: 16px;
+  --pad: 24px;
   --control-height: 36px;
   --sidebar: 220px;
   /* 애플 기기에서는 시스템 글꼴(SF Pro·애플 SD 산돌고딕)을 먼저 씀 */
@@ -39,8 +40,8 @@
   --fs-section: 16px;
   --fs-kpi: 24px;
   --fs-lead: 32px;
-  --fs-body: 14px;
-  --fs-small: 12px;
+  --fs-body: 15px;
+  --fs-small: 13px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);   /* 강한 ease-out: 창·버튼 움직임 공통 */
   color-scheme: dark;
 }
@@ -49,11 +50,11 @@
 html { background: var(--ground); -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
 button { touch-action: manipulation; }   /* 두 번 탭해도 확대 안 됨, 탭 반응이 빨라짐 */
 #snow { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-body { margin: 0; padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); background: var(--ground); color: var(--text); font: 400 var(--fs-body)/20px var(--font); }
+body { margin: 0; padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left); background: var(--ground); color: var(--text); font: 400 var(--fs-body)/22px var(--font); }
 button, input, select { font: inherit; color: inherit; }
 h1, h2, h3, p { margin: 0; }
 h1 { font-size: var(--fs-title); line-height: 28px; font-weight: 600; }
-h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 500; }
+h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 600; }
 .num { font-variant-numeric: tabular-nums; }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
@@ -99,12 +100,14 @@ h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 500; }
 .text-btn:hover { color: var(--text); }
 
 /* ---------- 제목 줄 ---------- */
-.title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-.sub { color: var(--muted); margin-top: 4px; font-size: 14px; word-break: keep-all; }   /* "17일"처럼 단어 중간에서 줄이 끊기지 않게 */
+.title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.sub { color: var(--muted); margin-top: 4px; font-size: var(--fs-body); word-break: keep-all; }   /* "17일"처럼 단어 중간에서 줄이 끊기지 않게 */
 
 /* ---------- 카드 ---------- */
-.panel { background: var(--surface); border-radius: var(--radius-card); padding: var(--pad); min-width: 0; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.panel { background: var(--surface); border-radius: var(--radius-card); padding: var(--pad); min-width: 0; box-shadow: inset 0 0 0 1px rgba(244, 248, 246, 0.05); /* taste-skill-ignore: 눈 서리 윤곽(겨울 포인트 1) */ }
+/* 겨울 포인트 2: 이번 달 카드 위쪽에만 번지는 촛불빛 */
+.summary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 55%); /* taste-skill-ignore: 겨울 포인트 2 */ }
+.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .label { display: block; color: var(--muted); font-size: 13px; line-height: 18px; font-weight: 400; }
 .meta { color: var(--faint); font-size: var(--fs-small); }
 .figure { display: block; background: none; border: 0; padding: 0; text-align: left; font-size: var(--fs-kpi); line-height: 32px; font-weight: 500; white-space: nowrap; }
@@ -112,6 +115,10 @@ button.figure { cursor: pointer; }
 button.figure:hover { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 6px; }
 .figure.lead { font-size: var(--fs-lead); line-height: 40px; font-weight: 600; letter-spacing: -0.02em; }
 .figure .unit { color: var(--muted); font-size: 0.6em; font-weight: 400; margin-left: 2px; }
+/* 금액 위계: 정수부는 크고 진하게, 센트(,56)는 작고 흐리게. € 기호는 정수부와 같은 크기 */
+.cents { color: var(--muted); font-size: 0.7em; font-weight: 400; }
+.figure.lead .cents { font-size: 0.55em; }
+.figure.lead { font-weight: 700; }
 
 /* 가계부 화면 격자: 12칸 대신 두 칸. 1fr + 340px + 사이 14px = 캔버스 너비 */
 .grid-main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--gap); align-items: start; }
@@ -131,8 +138,10 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .sum-cats { padding-top: 4px; }
 .sum-cats .label { margin-bottom: 12px; }
-#cat-bars li { font-size: 14px; }
-.empty { color: var(--faint); padding: 12px 0; list-style: none; }
+#cat-bars li { font-size: var(--fs-body); }
+/* 빈 화면: 가운데 정렬 + 다음에 할 일 안내 */
+.empty { color: var(--muted); padding: 28px 0; list-style: none; text-align: center; display: grid; justify-items: center; gap: 12px; }
+.empty.ok { color: var(--positive); }
 
 /* 동현 · 함께 · 나윤 세 줄 */
 .lane-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--gap); }
@@ -146,15 +155,22 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 
 /* 목록 줄 */
 .rows { list-style: none; margin: 0; padding: 0; }
-.rows > li + li { border-top: 1px solid var(--rule); }
-.row-btn { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; background: none; border: 0; padding: 10px 0; text-align: left; cursor: pointer; border-radius: 8px; }
+/* 줄 사이 구분선은 없앰: 날짜 머리글과 여백으로 나눔 */
+.day-head { color: var(--faint); font-size: var(--fs-small); line-height: 18px; padding: 16px 0 4px; border-bottom: 1px solid var(--rule); }
+.day-head:first-child { padding-top: 0; }
+.dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--control)); margin-right: 6px; vertical-align: 0; }
+.row-btn { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; background: none; border: 0; padding: 12px 0; text-align: left; cursor: pointer; border-radius: 8px; }
 .row-btn:hover .row-title { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 4px; }
 .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-sub { color: var(--faint); font-size: var(--fs-small); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-amt { text-align: right; font-weight: 500; white-space: nowrap; }
 .row-amt.income { color: var(--positive); }
 .row-amt.transfer { color: var(--muted); }
-.row-static { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 10px 0; }
+.row-static { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 0; }
+/* 다음에 빠질 자동 지출 하나만 금빛으로 강조 */
+.row-static.next .day-chip { background: color-mix(in srgb, var(--accent) 18%, var(--raised)); color: var(--accent); }
+.row-static.next .day-chip b, .row-static.next .when { color: var(--accent); }
+.foot-total { font-size: var(--fs-body); }
 .day-chip { flex: none; width: 40px; height: 40px; border-radius: 10px; background: var(--raised); display: grid; place-items: center; font-size: 12px; line-height: 14px; color: var(--muted); text-align: center; }
 .day-chip b { display: block; color: var(--text); font-size: 15px; font-weight: 500; }
 .rows .avatar { width: 32px; height: 32px; }

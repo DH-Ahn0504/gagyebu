@@ -31,7 +31,19 @@
   const accountOptions = (selected) =>
     data.accounts.map((a) => `<option value="${a.id}" ${a.id === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
   const catNames = (type) => data.categories.filter((c) => c.type === type).map((c) => c.name);
-  const money = (cents) => `<span class="num">${esc(fmt(cents))}</span>`;
+  // 금액 표시: 센트(,56)만 작고 흐리게. 계산은 건드리지 않고 fmt() 결과 글자만 나눔
+  const amtHtml = (cents) => {
+    const s = fmt(cents), i = s.lastIndexOf(",");
+    return i < 0 ? esc(s) : `${esc(s.slice(0, i))}<span class="cents">${esc(s.slice(i, i + 3))}</span>${esc(s.slice(i + 3))}`;
+  };
+  const money = (cents) => `<span class="num">${amtHtml(cents)}</span>`;
+  // 분류 이름 → 늘 같은 색 (8가지 차분한 색)
+  const catColor = (name) => {
+    let h = 0;
+    for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360;
+    return `hsl(${Math.round(h / 45) * 45 + 10} 50% 66%)`;
+  };
+  const dayHead = (d) => `${shortDate(d)} (${"일월화수목금토"[new Date(d + "T00:00:00").getDay()]})`;
   const monthLabel = (ym) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`;
   const shortDate = (d) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
 
@@ -123,17 +135,24 @@
   const openNew = () => openTxn({ account_id: state.acct.id && !$("view-accounts").hidden ? state.acct.id : "everyday" });
 
   // ---------- 내역 줄 ----------
-  function txnRows(el, txns, empty) {
-    if (!txns.length) { el.innerHTML = `<li class="empty">${esc(empty)}</li>`; return; }
+  // 같은 날짜끼리 묶어 날짜 머리글을 한 번만 보여 줌. 분류는 색 점으로 표시
+  function txnRows(el, txns, empty, addHint) {
+    if (!txns.length) {
+      el.innerHTML = `<li class="empty">${esc(empty)}${addHint ? `<button class="btn" data-add>+ 내역 추가</button>` : ""}</li>`;
+      return;
+    }
+    let last = "";
     el.innerHTML = txns.map((t) => {
       const sign = t.type === "income" ? "+" : t.type === "expense" ? "−" : "";
       const where = t.type === "transfer"
         ? `${esc(accountName(t.account_id))} → ${esc(accountName(t.transfer_account_id))}`
-        : `${esc(accountName(t.account_id))} · ${esc(t.category || "분류 없음")}`;
-      return `<li><button class="row-btn" data-edit="${esc(t.id)}" aria-label="${esc(t.description)} ${esc(fmt(t.amount_cents))} 수정">
+        : `<i class="dot" style="--c:${catColor(t.category || "분류 없음")}"></i>${esc(t.category || "분류 없음")} · ${esc(accountName(t.account_id))}`;
+      const head = t.date !== last ? `<li class="day-head">${esc(dayHead(t.date))}</li>` : "";
+      last = t.date;
+      return `${head}<li><button class="row-btn" data-edit="${esc(t.id)}" aria-label="${esc(t.description)} ${esc(fmt(t.amount_cents))} 수정">
         <span class="avatar ${personClass(t.created_by)}" title="${esc(t.created_by)}">${esc(personInitial(t.created_by))}</span>
-        <span><span class="row-title" style="display:block">${esc(t.description)}</span><span class="row-sub" style="display:block">${esc(shortDate(t.date))} · ${where}</span></span>
-        <span class="row-amt num ${t.type}">${sign}${esc(fmt(t.amount_cents))}</span>
+        <span><span class="row-title" style="display:block">${esc(t.description)}</span><span class="row-sub" style="display:block">${where}</span></span>
+        <span class="row-amt num ${t.type}">${sign}${amtHtml(t.amount_cents)}</span>
       </button></li>`;
     }).join("");
   }
@@ -181,13 +200,13 @@
       const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + t.amount_cents, 0);
       return `<div class="lane">
         <div class="lane-head"><span class="avatar ${lane.key === "us" ? "" : lane.key}" aria-hidden="true">${lane.initial}</span>${lane.name}</div>
-        <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${esc(fmt(spent))}</span></div>
-        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${esc(fmt(bal[id]))}</span></button>`).join("")}</div>
+        <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${amtHtml(spent)}</span></div>
+        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>`).join("")}</div>
       </div>`;
     }).join("");
     $("lanes-meta").innerHTML = `통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
 
-    txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`);
+    txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`, true);
 
     // 남은 자동 지출
     const due = isNow ? billsLeft(ym) : [];
@@ -195,12 +214,16 @@
     $("bills-due").innerHTML = !isNow
       ? `<li class="empty">이번 달 화면에서만 보여요.</li>`
       : due.length
-        ? due.slice(0, 5).map((b) => `<li class="row-static">
+        ? due.slice(0, 5).map((b, i) => {
+            const left = b.day - Number(today().slice(8, 10));
+            const when = left === 0 ? "오늘" : left > 0 ? `${left}일 뒤` : "";
+            return `<li class="row-static${i === 0 ? " next" : ""}">
             <span class="day-chip"><b class="num">${b.day}</b>일</span>
-            <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}</span></span>
-            <span></span><span class="row-amt num">−${esc(fmt(b.amount_cents))}</span></li>`).join("")
-        : `<li class="empty">이번 달 자동 지출은 모두 기록됐어요.</li>`;
-    $("bills-total").innerHTML = due.length ? `<span>${due.length}건 합계</span><span class="num">−${esc(fmt(dueSum))}</span>` : "";
+            <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${when ? ` · <span class="when">${when}</span>` : ""}</span></span>
+            <span></span><span class="row-amt num">−${amtHtml(b.amount_cents)}</span></li>`;
+          }).join("")
+        : `<li class="empty ok">이번 달 자동 지출은 모두 기록됐어요.</li>`;
+    $("bills-total").innerHTML = due.length ? `<span>${due.length}건 합계</span><span class="num">−${amtHtml(dueSum)}</span>` : "";
 
     // 한 줄 요약 (이번 달에 가장 먼저 알아야 할 것)
     $("main-finding").textContent = isNow && due.length
@@ -299,7 +322,7 @@
     $("bill-list").innerHTML = bills.length ? bills.map((b) => `<li class="row-static">
       <span class="day-chip"><b class="num">${b.due_day}</b>일</span>
       <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</span></span>
-      <span class="row-amt num">−${esc(fmt(b.amount_cents))}</span>
+      <span class="row-amt num">−${amtHtml(b.amount_cents)}</span>
       <button class="text-btn" data-delbill="${esc(b.id)}" aria-label="${esc(b.description)} 자동 지출 삭제">삭제</button></li>`).join("")
       : `<li class="empty">등록된 자동 지출이 없어요.</li>`;
   }
