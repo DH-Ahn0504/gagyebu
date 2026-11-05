@@ -1,6 +1,6 @@
 # 001 — Animate the "내역 추가/수정" dialog open and close
 
-- **Status**: DONE (적용됨, 브라우저 느낌 확인 전)
+- **Status**: DONE (적용됨, 폰에서 확인 완료)
 - **Commit**: 0bfd8c4 (working copy had uncommitted edits to `style.css`, `app.js`, `index.html` when this plan was written; line numbers below are from that working copy)
 - **Severity**: MEDIUM (missed opportunity: a jarring state change on a screen seen several times a day)
 - **Category**: Missed opportunities / Interruptibility

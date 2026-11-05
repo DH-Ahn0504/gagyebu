@@ -1,6 +1,6 @@
 # 002 — Smooth button press feedback
 
-- **Status**: DONE (느낌 확인 전). 작업 전에 이미 .btn/.icon-btn에 120ms transition이 있어 그 값을 유지, .row-btn 전환 추가·icon-btn 0.95·reduced-motion 불투명도 추가
+- **Status**: DONE (폰에서 확인 완료). 작업 전에 이미 .btn/.icon-btn에 120ms transition이 있어 그 값을 유지, .row-btn 전환 추가·icon-btn 0.95·reduced-motion 불투명도 추가
 - **Commit**: 0bfd8c4 (the working copy has uncommitted edits to `style.css`, `app.js`, `index.html`, so the line numbers below come from the working copy, after plan 001 was applied)
 - **Severity**: LOW to MEDIUM (feel polish on the most-touched elements)
 - **Category**: Physicality & origin / Easing & duration
