@@ -8,3 +8,7 @@ dev-seed.js
 _photo.webp
 # taste-skill 검사 결과·스크린샷
 .taste-skill/
+
+# 비밀 설정·개인 로컬 파일
+.env
+.env.*
