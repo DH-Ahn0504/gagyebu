@@ -1,6 +1,7 @@
 // 눈 내리는 효과: 작은 하얀 점 몇십 개를 canvas에 그림. 글자를 가리지 않게 작고 성기게.
 // 멈추는 때: 눈 끄기, 탭이 가려졌을 때, 휴대폰의 "동작 줄이기" 설정.
 (() => {
+  if (document.documentElement.dataset.theme !== "winter") return; // 겨울이 아니면 캔버스도 만들지 않음
   const KEY = "gagyebu-snow";
   const reduce = matchMedia("(prefers-reduced-motion: reduce)");
   let want = true;
@@ -11,6 +12,9 @@
   cv.setAttribute("aria-hidden", "true");
   document.body.prepend(cv);
   const ctx = cv.getContext("2d");
+  // 눈 색은 style.css의 --effect-ink-rgb. "숫자, 숫자, 숫자"(각 0~255)일 때만 쓰고, 아니면 예전 색
+  const m = /^\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*$/.exec(getComputedStyle(document.documentElement).getPropertyValue("--effect-ink-rgb"));
+  const ink = m && m.slice(1).every((n) => +n <= 255) ? m.slice(1).join(", ") : "244, 248, 246";
   let w = 0, h = 0, flakes = [], raf = 0, last = 0;
 
   const spawn = (anywhere) => ({
@@ -38,7 +42,7 @@
       f.d += dt * 0.8;
       f.x += Math.sin(f.d) * 12 * dt + 4 * dt;
       if (f.y > h + 6 || f.x > w + 6) Object.assign(f, spawn(false));
-      ctx.fillStyle = `rgba(244, 248, 246, ${f.a})`;
+      ctx.fillStyle = `rgba(${ink}, ${f.a})`;
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, 6.2832); ctx.fill();
     }
     raf = requestAnimationFrame(frame);

@@ -34,6 +34,9 @@
       change((d) => { if (!d.categories.some((c) => c.type === type && c.name === name)) d.categories.push({ type, name }); });
     },
     async deleteCategory(type, name) { change((d) => { d.categories = d.categories.filter((c) => !(c.type === type && c.name === name)); }); },
+    async setBudget(type, name, cents) {
+      change((d) => { const c = d.categories.find((x) => x.type === type && x.name === name); if (c) c.budget_cents = cents; });
+    },
     async addBill(b) { change((d) => d.bills.push({ ...b, id: newId(), active: true, last_processed_month: "" })); },
     async deleteBill(id) { change((d) => { d.bills = d.bills.filter((b) => b.id !== id); }); },
     // shortcut: 1단계에서는 앱을 열 때 처리, 2단계에서 Supabase 예약 실행(매일)으로 옮김

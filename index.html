@@ -1,8 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="winter">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- 대체값. 자바스크립트(theme.js)가 현재 테마의 --ground로 갱신함 -->
   <meta name="theme-color" content="#0b1411">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -14,6 +15,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <script src="theme.js"></script>
 </head>
 <body>
   <div class="shell">
@@ -65,6 +67,10 @@
             <div class="sum-cats">
               <h2 class="label">분류별 지출</h2>
               <div id="cat-bars"></div>
+              <div id="budget-bars" hidden>
+                <h2 class="label">분류별 예산</h2>
+                <ul id="budget-list"></ul>
+              </div>
             </div>
           </section>
 
@@ -164,6 +170,11 @@
         </div>
 
         <div class="setting">
+          <div class="setting-label"><h2>분류별 월 예산</h2><p>지출 분류마다 한 달에 쓸 금액을 정합니다. 비워 두면 예산이 없습니다.</p></div>
+          <form id="budget-form" class="panel form"></form>
+        </div>
+
+        <div class="setting">
           <div class="setting-label"><h2>매달 자동으로 빠지는 돈</h2><p>정한 날이 되면 매일 아침 공과금으로 기록합니다. 29~31일이 없는 달은 그 달 마지막 날. 실제 은행에서는 돈이 빠지지 않습니다.</p><p class="meta" id="bill-total"></p></div>
           <div class="panel">
             <ul class="rows" id="bill-list"></ul>
@@ -177,8 +188,8 @@
           </div>
         </div>
 
-        <div class="setting">
-          <div class="setting-label"><h2>눈 내리는 효과</h2><p>겨울 동안 화면 위로 눈이 내립니다. 눈이 거슬리거나 배터리가 걱정되면 끄세요.</p></div>
+        <div class="setting" id="snow-setting">
+          <div class="setting-label"><h2>계절 효과</h2><p>겨울 동안 화면 위로 눈이 내립니다. 눈이 거슬리거나 배터리가 걱정되면 끄세요.</p></div>
           <div class="panel"><button class="btn" id="snow-toggle" aria-pressed="true">눈 끄기</button></div>
         </div>
       </section>
@@ -210,12 +221,14 @@
     </nav>
   </div>
 
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+
   <dialog id="edit-dialog" aria-labelledby="edit-title">
     <h2 id="edit-title">내역</h2>
     <form id="edit-form" class="form"></form>
   </dialog>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js" integrity="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R" crossorigin="anonymous"></script>
   <script src="config.js"></script>
   <script src="logic.js"></script>
   <script src="store.js"></script>

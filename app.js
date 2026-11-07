@@ -29,7 +29,7 @@
 
   const accountName = (id) => (data.accounts.find((a) => a.id === (id || "everyday")) || { name: id }).name;
   const accountOptions = (selected) =>
-    data.accounts.map((a) => `<option value="${a.id}" ${a.id === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
+    data.accounts.map((a) => `<option value="${esc(a.id)}" ${a.id === selected ? "selected" : ""}>${esc(a.name)}</option>`).join("");
   const catNames = (type) => data.categories.filter((c) => c.type === type).map((c) => c.name);
   // 금액 표시: 센트(,56)만 작고 흐리게. 계산은 건드리지 않고 fmt() 결과 글자만 나눔
   const amtHtml = (cents) => {
@@ -41,29 +41,38 @@
   const catColor = (name) => {
     let h = 0;
     for (const ch of String(name)) h = (h * 31 + ch.codePointAt(0)) % 360;
-    return `hsl(${Math.round(h / 45) * 45 + 10} 50% 66%)`;
+    return `var(--cat-${(Math.round(h / 45) % 8) + 1})`; // 1~8 정수만 (색은 style.css의 --cat-N)
   };
   const dayHead = (d) => `${shortDate(d)} (${"일월화수목금토"[new Date(d + "T00:00:00").getDay()]})`;
   const monthLabel = (ym) => `${ym.slice(0, 4)}년 ${Number(ym.slice(5, 7))}월`;
   const shortDate = (d) => `${Number(d.slice(5, 7))}월 ${Number(d.slice(8, 10))}일`;
 
   // ---------- 내역 입력 창 (새 입력과 수정에 같이 씀) ----------
+  let toastTimer;
+  function toast(text) {
+    const el = $("toast");
+    el.textContent = text;
+    el.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.hidden = true; }, 2500);
+  }
+
   function fillTxnForm(form, t) {
     const type = t.type || "expense";
     const cats = catNames(type);
-    if (t.category && !cats.includes(t.category)) cats.push(t.category); // 지워진 분류도 수정할 땐 유지
+    if (t.id && t.category && !cats.includes(t.category)) cats.push(t.category); // 지워진 분류도 수정할 땐 유지
     form.innerHTML = `
       <div class="seg type-seg" role="group" aria-label="종류">
         ${["expense", "income", "transfer"].map((k) => `
           <button type="button" data-type="${k}" aria-pressed="${k === type}">${k === "transfer" ? "통장 이체" : L.TYPE_LABEL[k]}</button>`).join("")}
       </div>
       <label>금액 (€) <input name="amount" inputmode="decimal" autocomplete="off" placeholder="12,50" value="${t.amount_cents ? (t.amount_cents / 100).toFixed(2).replace(".", ",") : ""}" required></label>
-      <label>내용 <input name="description" maxlength="60" value="${esc(t.description)}" required></label>
+      <label>내용 <input name="description" maxlength="60" list="desc-list" value="${esc(t.description)}" required><datalist id="desc-list">${L.recentDescriptions(data.txns, type).map((d) => `<option value="${esc(d)}"></option>`).join("")}</datalist></label>
       <label>날짜 <input name="date" type="date" value="${esc(t.date || today())}" required></label>
       <label>${type === "transfer" ? "보내는 통장" : "통장"} <select name="account_id">${accountOptions(t.account_id || "everyday")}</select></label>
       ${type === "transfer"
         ? `<label>받는 통장 <select name="transfer_account_id">${accountOptions(t.transfer_account_id || "savings")}</select></label>`
-        : `<label>분류 <select name="category">${cats.map((c) => `<option ${c === t.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`}
+        : `<label>분류 <select name="category">${cats.map((c) => `<option value="${esc(c)}" ${c === t.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`}
       <p class="error" role="alert"></p>
       <div class="row">
         ${t.id ? `<button type="button" class="btn danger" data-delete>삭제</button>` : ""}
@@ -72,14 +81,36 @@
       </div>`;
     form.dataset.type = type;
     form.querySelectorAll("[data-type]").forEach((b) =>
-      b.addEventListener("click", () => fillTxnForm(form, { ...readFields(form), id: t.id, type: b.dataset.type })));
+      b.addEventListener("click", () => {
+        const f = readFields(form);
+        // 통장·분류는 사용자가 고른 것일 때만 touched로 넘김. 종류가 바뀌면 분류는 비우되, 처음 연 내역의 종류로 돌아오면 원래 분류
+        const orig = t.orig || t;
+        const same = b.dataset.type === type;
+        fillTxnForm(form, { ...f, id: t.id, orig, type: b.dataset.type, touched: !!form.account_id.dataset.touched,
+          catTouched: same && !!form.category?.dataset.touched,
+          category: same ? f.category : t.id && b.dataset.type === orig.type ? orig.category : "" });
+      }));
     form.querySelector("[data-cancel]").onclick = () => $("edit-dialog").close();
+    // 새 입력일 때만: 예전에 쓴 내용이면 분류·통장(비어 있을 때만 금액)을 채움
+    if (!t.id && type !== "transfer") form.description.addEventListener("change", () => {
+      const s = L.suggestFor(data.txns, type, form.description.value.trim());
+      if (!s) return;
+      const has = (sel, v) => [...sel.options].some((o) => o.value === v);
+      if (!form.category.dataset.touched && has(form.category, s.category)) form.category.value = s.category;
+      if (!form.account_id.dataset.touched && has(form.account_id, s.account_id)) form.account_id.value = s.account_id;
+      if (!form.amount.value.trim() && Number.isFinite(s.amount_cents)) form.amount.value = (s.amount_cents / 100).toFixed(2).replace(".", ",");
+    });
+    // 사용자가 직접 고른(또는 미리 골라 둔) 값은 자동 채우기가 덮어쓰지 않음
+    if (t.touched ?? t.account_id) form.account_id.dataset.touched = "1";
+    if (t.catTouched && form.category) form.category.dataset.touched = "1";
+    for (const name of ["category", "account_id"]) form[name]?.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
     const del = form.querySelector("[data-delete]");
     if (del) del.onclick = async () => {
       if (!confirm(`'${t.description}' ${fmt(t.amount_cents)} 내역을 삭제할까요?`)) return;
       await S.deleteTxn(t.id);
       $("edit-dialog").close();
       await refresh();
+      toast(`${t.description} 삭제했어요`);
     };
   }
 
@@ -96,12 +127,16 @@
     };
   }
 
-  function validate(t) {
+  function validate(t, orig) {
     if (!(t.amount_cents > 0)) return "금액을 0보다 크게 입력해 주세요. (예: 12,50)";
     if (!t.description || t.description.length > 60) return "내용은 1자 이상 60자 이하로 입력해 주세요.";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(t.date || "")) return "날짜를 확인해 주세요.";
+    const ids = data.accounts.map((a) => a.id);
+    if (!ids.includes(t.account_id) || (t.type === "transfer" && !ids.includes(t.transfer_account_id))) return "통장을 다시 선택해 주세요.";
     if (t.type === "transfer" && t.transfer_account_id === t.account_id) return "보내는 통장과 다른 받는 통장을 선택해 주세요.";
     if (t.type !== "transfer" && !t.category) return "분류를 선택해 주세요.";
+    // 그 종류의 분류여야 함. 단, 수정 중인 옛 내역의 (지워진) 분류는 그대로 저장 가능
+    if (t.type !== "transfer" && !catNames(t.type).includes(t.category) && !(orig && orig.type === t.type && orig.category === t.category)) return "분류를 다시 선택해 주세요.";
     return "";
   }
 
@@ -112,13 +147,14 @@
     form.onsubmit = async (e) => {
       e.preventDefault();
       const v = readFields(form);
-      const error = validate(v);
+      const error = validate(v, t.id ? t : null);
       form.querySelector(".error").textContent = error;
       if (error) return;
       if (t.id) await S.updateTxn({ ...v, id: t.id });
       else await S.addTxn({ ...v, created_by: me.name });
       $("edit-dialog").close();
       await refresh();
+      toast(t.id ? `${v.description} 수정했어요` : `${v.category || v.description} ${fmt(v.amount_cents)} 추가했어요`);
     };
     $("edit-dialog").showModal();
     form.amount.focus();
@@ -132,7 +168,7 @@
     };
     vv.addEventListener("resize", fit); vv.addEventListener("scroll", fit);
   }
-  const openNew = () => openTxn({ account_id: state.acct.id && !$("view-accounts").hidden ? state.acct.id : "everyday" });
+  const openNew = () => openTxn(state.acct.id && !$("view-accounts").hidden ? { account_id: state.acct.id } : {});
 
   // ---------- 내역 줄 ----------
   // 같은 날짜끼리 묶어 날짜 머리글을 한 번만 보여 줌. 분류는 색 점으로 표시
@@ -175,6 +211,13 @@
       .sort((a, b) => a.day - b.day);
   }
 
+  // 이번 달 화면 통장 줄 아래: 월말 예상 잔액 (음수면 빨간 글자)
+  function projected(id, due) {
+    const cents = L.projectedBalance(data.accounts.find((a) => a.id === id), data.txns, due);
+    if (cents === null) return "";
+    return `<p class="meta num${cents < 0 ? " neg" : ""}">월말 예상 ${esc(fmt(cents))}</p>`;
+  }
+
   function renderMain() {
     const ym = state.month;
     const isNow = ym === today().slice(0, 7);
@@ -189,19 +232,30 @@
 
     // 분류별 지출 (가장 큰 것만 분홍)
     const byCat = {};
-    for (const t of monthTxns) if (t.type === "expense") byCat[t.category || "분류 없음"] = (byCat[t.category || "분류 없음"] || 0) + t.amount_cents;
+    for (const t of monthTxns) if (t.type === "expense") byCat[t.category || "분류 없음"] = (byCat[t.category || "분류 없음"] || 0) + L.sumCents([t]);
     const cats = Object.entries(byCat).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 6);
     if (cats.length) C.barList($("cat-bars"), cats, { format: fmt, thin: true, colour: "var(--accent)" });
     else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
 
+    // 분류별 예산 진행 막대 (예산이 하나도 없으면 숨김)
+    const budgets = L.budgetRows(data.categories, monthTxns);
+    $("budget-bars").hidden = !budgets.length;
+    $("budget-list").innerHTML = budgets.map((b) => `<li>
+      <div class="budget-line"><span>${esc(b.name)}</span><span class="num">${esc(fmt(b.spent))} / ${esc(fmt(b.budget))}</span></div>
+      <div class="budget-track" role="progressbar" aria-label="${esc(b.name)} 예산 사용" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(b.pct, 100)}"><div class="budget-fill budget-${b.level}" style="width:${Math.min(b.pct, 100)}%"></div></div>
+      ${b.level === "over" ? `<p class="budget-over">초과 ${esc(fmt(b.spent - b.budget))}</p>` : ""}
+    </li>`).join("");
+
+    const due = isNow ? billsLeft(ym) : [];
+
     // 동현 · 함께 · 나윤
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     $("lanes").innerHTML = LANES.map((lane) => {
-      const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + t.amount_cents, 0);
+      const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + L.sumCents([t]), 0);
       return `<div class="lane">
         <div class="lane-head"><span class="avatar ${lane.key === "us" ? "" : lane.key}" aria-hidden="true">${lane.initial}</span>${lane.name}</div>
         <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${amtHtml(spent)}</span></div>
-        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>`).join("")}</div>
+        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>${isNow ? projected(id, due) : ""}`).join("")}</div>
       </div>`;
     }).join("");
     $("lanes-meta").innerHTML = `통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
@@ -209,8 +263,7 @@
     txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`, true);
 
     // 남은 자동 지출
-    const due = isNow ? billsLeft(ym) : [];
-    const dueSum = due.reduce((s, b) => s + b.amount_cents, 0);
+    const dueSum = L.sumCents(due);
     $("bills-due").innerHTML = !isNow
       ? `<li class="empty">이번 달 화면에서만 보여요.</li>`
       : due.length
@@ -269,7 +322,7 @@
     const a = data.accounts.find((x) => x.id === state.acct.id) || data.accounts[0];
     state.acct.id = a.id;
     const { mode, anchor } = state.acct;
-    $("a-tabs").innerHTML = data.accounts.map((x) => `<button data-account="${x.id}" aria-pressed="${x.id === a.id}">${esc(x.name)}</button>`).join("");
+    $("a-tabs").innerHTML = data.accounts.map((x) => `<button data-account="${esc(x.id)}" aria-pressed="${x.id === a.id}">${esc(x.name)}</button>`).join("");
     pressSeg($("a-mode"), "mode", mode);
     $("a-name").textContent = a.name;
     const lane = LANES.find((l) => l.accounts.includes(a.id));
@@ -308,7 +361,7 @@
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     if (!$("balance-form").contains(document.activeElement)) {
       $("balance-form").innerHTML = data.accounts.map((a) =>
-        `<label>${esc(a.name)} (€) <input name="${a.id}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
+        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
         `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
     }
     $("balance-total").textContent = `지금 통장 합계${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
@@ -316,9 +369,14 @@
       $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
         `<li>${esc(name)}<button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
     }
+    if (!$("budget-form").contains(document.activeElement)) {
+      $("budget-form").innerHTML = data.categories.filter((c) => c.type === "expense").map((c) =>
+        `<label>${esc(c.name)} 월 예산 (€) <input data-budget="${esc(c.name)}" inputmode="decimal" placeholder="없음" value="${c.budget_cents ? (c.budget_cents / 100).toFixed(2).replace(".", ",") : ""}"></label>`).join("") +
+        `<p class="error" role="alert"></p><div class="row"><button class="btn primary">예산 저장</button></div>`;
+    }
     document.querySelectorAll(".account-select").forEach((s) => { s.innerHTML = accountOptions(s.value || "everyday"); });
     const bills = [...data.bills].sort((a, b) => a.due_day - b.due_day);
-    $("bill-total").textContent = bills.length ? `매달 ${bills.length}건 · 합계 ${fmt(bills.reduce((s, b) => s + b.amount_cents, 0))}` : "";
+    $("bill-total").textContent = bills.length ? `매달 ${bills.length}건 · 합계 ${fmt(L.sumCents(bills))}` : "";
     $("bill-list").innerHTML = bills.length ? bills.map((b) => `<li class="row-static">
       <span class="day-chip"><b class="num">${b.due_day}</b>일</span>
       <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</span></span>
@@ -334,6 +392,8 @@
     $("month-switch").hidden = view !== "main";
     $("crumb").hidden = view === "main";
     $("crumb").textContent = { history: "내역", accounts: "통장", settings: "설정" }[view] || "";
+    const snowBox = $("snow-setting");
+    if (snowBox) snowBox.hidden = document.documentElement.dataset.theme !== "winter"; // 계절 효과는 겨울만
     window.scrollTo(0, 0);
     render();
   }
@@ -376,6 +436,40 @@
     await S.setBases(bases);
     document.activeElement.blur();
     await refresh();
+  });
+
+  let budgetSaving = false;
+  $("budget-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (budgetSaving) return;   // 저장 중 중복 제출 방지
+    const changes = [];
+    for (const input of e.target.querySelectorAll("[data-budget]")) {
+      const name = input.dataset.budget;
+      const text = input.value.trim();
+      const cents = text === "" ? null : L.parseAmount(text);
+      if (text !== "" && !(cents > 0)) { e.target.querySelector(".error").textContent = `${name} 금액을 확인해 주세요. (예: 300,00)`; return; }
+      const old = data.categories.find((c) => c.type === "expense" && c.name === name)?.budget_cents ?? null;
+      if (cents !== old) changes.push([name, cents]);
+    }
+    const form = e.target;
+    const btn = form.querySelector("button");
+    budgetSaving = true;
+    btn.disabled = true;
+    let msg = "";   // refresh()가 폼을 다시 그리므로, 끝난 뒤 새 .error 칸에 넣을 고정 문구
+    try {
+      for (const [name, cents] of changes) await S.setBudget("expense", name, cents);
+      form.querySelector(".error").textContent = "";
+      document.activeElement.blur();
+    } catch (err) {
+      console.error(err);
+      msg = "일부만 저장됐을 수 있어요. 화면의 값을 확인하고 다시 시도해 주세요.";
+      document.activeElement.blur();   // 커서를 빼야 refresh()가 입력칸을 저장된 값으로 다시 그림
+    } finally {
+      try { await refresh(); }   // 일부만 저장됐어도 화면을 최신으로
+      catch (err) { console.error(err); msg = "화면을 새로고침하지 못했어요. 페이지를 다시 열어 주세요."; }
+      finally { budgetSaving = false; btn.disabled = false; }
+      if (msg) $("budget-form").querySelector(".error").textContent = msg;
+    }
   });
 
   $("cat-form").addEventListener("submit", async (e) => {

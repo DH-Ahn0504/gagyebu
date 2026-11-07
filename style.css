@@ -2,30 +2,8 @@
    얼굴: 바탕은 한겨울 소나무 숲 같은 짙은 초록, 글자는 눈색, 데이터 색 하나는 촛불 금색,
    주요 버튼 하나만 크랜베리 빨강. 층은 밝기로 나누고, 카드에는 눈 서리 같은 아주 옅은 1px 윤곽만 둠 (그림자 없음, 떠 있는 입력창만 예외).
    겨울 포인트는 두 곳뿐: 카드 서리 윤곽, 이번 달 카드 위쪽의 촛불빛. 더 늘리지 않음. */
+/* 테마와 상관없는 것: 크기·간격·모양·글꼴·움직임 */
 :root {
-  --ground: #0b1411;
-  --surface: #121f1a;
-  --raised: #1b2d26;
-  --rule: #1f302a;
-  --control: #3f5a50;
-  --text: #f4f8f6;
-  --muted: #b9c7c0;
-  --faint: #93a69d;
-  --accent: #f2c46d;          /* 촛불 금색: 데이터에만 */
-  --cta: #b83245;             /* 크랜베리 빨강: 주요 버튼 하나에만 */
-  --positive: #6fd39a;
-  --negative: #ff7a8a;
-  --warning: #e5a93b;
-  --chart-1: #f2c46d;
-  --chart-muted: #3f5a50;
-  --grid: #243a32;
-  --axis-ink: #93a69d;
-  --ink: #f4f8f6;
-  --chart-span: 0.12;
-  --person-dh: #23324a;  --person-dh-ink: #a9c6f5;   /* 동현: 옅은 파랑 */
-  --person-ny: #3a2a1c;  --person-ny-ink: #f0c39a;   /* 나윤: 옅은 살구 (60° 이상 떨어짐) */
-  --person-us: #2a2a2a;  --person-us-ink: #ffffff;
-
   --radius-card: 20px;
   --radius-inner: 12px;
   --radius-control: 999px;
@@ -43,6 +21,55 @@
   --fs-body: 15px;
   --fs-small: 13px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);   /* 강한 ease-out: 창·버튼 움직임 공통 */
+}
+/* 색 전부 (겨울). :root, 를 같이 쓰는 이유: data-theme 속성이 없어도 겨울로 동작. 다른 계절은 파일 뒤쪽에 [data-theme="spring"] 블록으로 덮어씀 */
+:root, [data-theme="winter"] {
+  --ground: #0b1411;
+  --surface: #121f1a;
+  --raised: #1b2d26;
+  --rule: #1f302a;
+  --control: #3f5a50;
+  --control-edge: #4f6f63;    /* 입력칸·버튼 테두리 전용: 바탕 #0b1411 위 3.37:1, 카드 #121f1a 위 3.06:1 */
+  --text: #f4f8f6;
+  --muted: #b9c7c0;
+  --faint: #93a69d;
+  --accent: #f2c46d;          /* 촛불 금색: 데이터에만 */
+  --cta: #b83245;             /* 크랜베리 빨강: 주요 버튼 하나에만 */
+  --positive: #6fd39a;
+  --negative: #ff7a8a;
+  --warning-fill: #f0913a;    /* 예산 막대 주황 */
+  --on-accent: #ffffff;       /* 눌린 메뉴·주요 버튼 글자 */
+  --control-hover: #5f7d70;
+  --cta-hover: #9e2a3b;
+  --danger-edge: #5a2a33;
+  --raised-hover: #2a4238;
+  --rule-strong: #2a4036;
+  --bar-glass: rgba(11, 20, 17, 0.82);   /* = --ground 값, 반투명 */
+  --scrim: rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5);
+  /* 겨울 전용: 다른 계절에서는 transparent / 0%로 두면 꺼짐 */
+  --frost-edge: rgba(244, 248, 246, 0.05);   /* 겨울 전용: 카드 서리 윤곽 */
+  --lead-glow: 7%;                           /* 겨울 전용: 이번 달 카드 촛불빛 세기 */
+  --chart-1: var(--accent);
+  --chart-muted: #3f5a50;
+  --grid: #243a32;
+  --axis-ink: var(--faint);
+  --ink: var(--text);
+  --chart-span: 0.12;
+  --person-dh: #23324a;  --person-dh-ink: #a9c6f5;   /* 동현: 옅은 파랑 */
+  --person-ny: #3a2a1c;  --person-ny-ink: #f0c39a;   /* 나윤: 옅은 살구 (60° 이상 떨어짐) */
+  --person-us: #2a2a2a;  --person-us-ink: #ffffff;
+  /* 분류 색 점: 테마마다 8색을 정의할 것 */
+  --cat-1: #8ab4f0;   /* 서리 파랑 */
+  --cat-2: #6bc6e0;   /* 얼음 하늘 */
+  --cat-3: #a597e6;   /* 라벤더 */
+  --cat-4: #cf92dc;   /* 난초 보라 */
+  --cat-5: #d985c0;   /* 장미 자주 */
+  --cat-6: #b4c2cc;   /* 서리 은색 */
+  --cat-7: #b9cf72;   /* 솔잎 연두 */
+  --cat-8: #cf9b84;   /* 흙빛 구리 */
+  /* 계절 효과 색(RGB 숫자만) */
+  --effect-ink-rgb: 244, 248, 246;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -65,8 +92,7 @@ h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 600; }
 .mark { width: 28px; height: 28px; display: block; flex: none; }
 .nav { display: grid; gap: 2px; }
 .nav-item { background: none; border: 0; text-align: left; height: 34px; padding: 0 8px; border-radius: 8px; color: var(--muted); cursor: pointer; }
-.nav-item:hover { color: #ffffff; }
-.nav-item[aria-current="page"] { color: #ffffff; font-weight: 500; }
+.nav-item[aria-current="page"] { color: var(--on-accent); font-weight: 500; }
 
 .topbar { grid-column: 2; display: flex; align-items: center; gap: 16px; padding: 0 29px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 2; background: var(--ground); }
 .brand-phone { display: none; }
@@ -82,37 +108,33 @@ h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 600; }
 .shell.logged-out .canvas { padding: 48px 16px; }
 
 /* ---------- 버튼 ---------- */
-.btn { height: var(--control-height); padding: 0 16px; border-radius: var(--radius-control); border: 1px solid var(--control); background: none; cursor: pointer; font-weight: 500; white-space: nowrap; }
-.btn:hover { border-color: #5f7d70; }
-.btn.primary { background: var(--cta); color: #ffffff; border-color: var(--cta); }
-.btn.primary:hover { background: #9e2a3b; border-color: #9e2a3b; }
-.btn.danger { color: var(--negative); border-color: #5a2a33; }
+.btn { height: var(--control-height); padding: 0 16px; border-radius: var(--radius-control); border: 1px solid var(--control-edge); background: none; cursor: pointer; font-weight: 500; white-space: nowrap; }
+.btn.primary { background: var(--cta); color: var(--on-accent); border-color: var(--cta); }
+.btn.danger { color: var(--negative); border-color: var(--danger-edge); }
+.btn:disabled { opacity: .5; cursor: default; }   /* 저장 중 등: 눌림·hover 반응 없음 */
 /* 누름·올림 반응: 120ms, 입력창과 같은 ease-out. 색과 크기만 움직임 */
 .btn, .icon-btn, .seg button, .nav-item, .text-btn, .chips button, .acct-link {
   transition: background-color 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-out); }
-.btn:active { transform: scale(0.97); }
+.btn:not(:disabled):active { transform: scale(0.97); }
 .icon-btn:active { transform: scale(0.95); }   /* 작은 동그라미 버튼은 조금 더 */
 .row-btn { transition: transform 120ms var(--ease-out); }
 .row-btn:active { transform: scale(0.985); }   /* 넓은 줄은 살짝만 */
 .icon-btn { width: 32px; height: 32px; border-radius: 50%; border: 0; background: var(--raised); cursor: pointer; font-size: 16px; line-height: 1; }
-.icon-btn:hover { background: #2a4238; }
 .text-btn { background: none; border: 0; padding: 4px 0; color: var(--muted); cursor: pointer; }
-.text-btn:hover { color: var(--text); }
 
 /* ---------- 제목 줄 ---------- */
 .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .sub { color: var(--muted); margin-top: 4px; font-size: var(--fs-body); word-break: keep-all; }   /* "17일"처럼 단어 중간에서 줄이 끊기지 않게 */
 
 /* ---------- 카드 ---------- */
-.panel { background: var(--surface); border-radius: var(--radius-card); padding: var(--pad); min-width: 0; box-shadow: inset 0 0 0 1px rgba(244, 248, 246, 0.05); /* taste-skill-ignore: 눈 서리 윤곽(겨울 포인트 1) */ }
+.panel { background: var(--surface); border-radius: var(--radius-card); padding: var(--pad); min-width: 0; box-shadow: inset 0 0 0 1px var(--frost-edge, transparent); /* taste-skill-ignore: 눈 서리 윤곽(겨울 포인트 1) */ }
 /* 겨울 포인트 2: 이번 달 카드 위쪽에만 번지는 촛불빛 */
-.summary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface) 55%); /* taste-skill-ignore: 겨울 포인트 2 */ }
+.summary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) var(--lead-glow, 0%), var(--surface)), var(--surface) 55%); /* taste-skill-ignore: 겨울 포인트 2 */ }
 .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .label { display: block; color: var(--muted); font-size: 13px; line-height: 18px; font-weight: 400; }
 .meta { color: var(--faint); font-size: var(--fs-small); }
 .figure { display: block; background: none; border: 0; padding: 0; text-align: left; font-size: var(--fs-kpi); line-height: 32px; font-weight: 500; white-space: nowrap; }
 button.figure { cursor: pointer; }
-button.figure:hover { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 6px; }
 .figure.lead { font-size: var(--fs-lead); line-height: 40px; font-weight: 600; letter-spacing: -0.02em; }
 .figure .unit { color: var(--muted); font-size: 0.6em; font-weight: 400; margin-left: 2px; }
 /* 금액 위계: 정수부는 크고 진하게, 센트(,56)는 작고 흐리게. € 기호는 정수부와 같은 크기 */
@@ -149,8 +171,7 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 .lane-head { display: flex; align-items: center; gap: 10px; font-weight: 500; }
 .lane-spent { display: flex; justify-content: space-between; align-items: baseline; }
 .lane-accts { display: grid; gap: 4px; }
-.acct-link { display: flex; justify-content: space-between; gap: 8px; background: none; border: 0; padding: 6px 0; color: var(--muted); cursor: pointer; text-align: left; border-top: 1px solid #2a4036; }
-.acct-link:hover { color: var(--text); }
+.acct-link { display: flex; justify-content: space-between; gap: 8px; background: none; border: 0; padding: 6px 0; color: var(--muted); cursor: pointer; text-align: left; border-top: 1px solid var(--rule-strong); }
 .acct-link .num { color: var(--text); }
 
 /* 목록 줄 */
@@ -160,7 +181,6 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 .day-head:first-child { padding-top: 0; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--control)); margin-right: 6px; vertical-align: 0; }
 .row-btn { width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; background: none; border: 0; padding: 12px 0; text-align: left; cursor: pointer; border-radius: 8px; }
-.row-btn:hover .row-title { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 4px; }
 .row-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-sub { color: var(--faint); font-size: var(--fs-small); line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-amt { text-align: right; font-weight: 500; white-space: nowrap; }
@@ -179,7 +199,6 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 18px; }
 .seg { display: inline-flex; gap: 4px; padding: 3px; background: var(--raised); border-radius: var(--radius-control); }
 .seg button { height: 30px; padding: 0 14px; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted); cursor: pointer; white-space: nowrap; }
-.seg button:hover { color: var(--text); }
 .seg button[aria-pressed="true"] { background: var(--text); color: var(--ground); font-weight: 500; }
 .stepper { display: flex; align-items: center; gap: 10px; }
 .stepper strong { min-width: 92px; text-align: center; font-weight: 500; }
@@ -209,7 +228,7 @@ button.figure:hover { text-decoration: underline; text-decoration-color: var(--c
 .form { display: grid; gap: 16px; }
 .form label { display: grid; gap: 8px; font-size: 14px; font-weight: 500; }
 .form.inline { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
-input, select { width: 100%; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--control); background: var(--ground); color: var(--text); font-weight: 400; }
+input, select { width: 100%; height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--control-edge); background: var(--ground); color: var(--text); font-weight: 400; }
 input::placeholder { color: var(--faint); }
 .error { color: var(--negative); font-size: 13px; min-height: 0; }
 .error:empty { display: none; }
@@ -218,7 +237,35 @@ input::placeholder { color: var(--faint); }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
 .chips li { display: flex; align-items: center; gap: 2px; background: var(--raised); border-radius: 999px; height: 32px; padding: 0 4px 0 14px; white-space: nowrap; }
 .chips button { width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
-.chips button:hover { background: #2a4238; color: var(--text); }
+/* 마우스가 있는 기기에서만 hover 효과 (휴대폰에서 눌린 채 남는 것 방지). 줄 순서 때문에 예전 우선순위를 :not()으로 유지 */
+@media (hover: hover) {
+  .nav-item:hover { color: var(--on-accent); }
+  .btn:not(.primary):not(.danger):not(:disabled):hover { border-color: var(--control-hover); }
+  .btn.primary:not(:disabled):hover { background: var(--cta-hover); border-color: var(--cta-hover); }
+  .btn.danger:not(:disabled):hover { border-color: color-mix(in srgb, var(--negative) 40%, var(--danger-edge)); }   /* 테두리만 한 단계 밝게 */
+  .icon-btn:hover { background: var(--raised-hover); }
+  .text-btn:hover { color: var(--text); }
+  button.figure:hover { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 6px; }
+  .acct-link:hover { color: var(--text); }
+  .row-btn:hover .row-title { text-decoration: underline; text-decoration-color: var(--control); text-underline-offset: 4px; }
+  .seg button:not([aria-pressed="true"]):hover { color: var(--text); }
+  .chips button:hover { background: var(--raised-hover); color: var(--text); }
+}
+/* 예산 진행 막대 (색·모양은 나중에 designer가 다듬음) */
+#budget-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 14px; }
+.budget-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: var(--fs-body); line-height: 22px; }
+.budget-line > span:first-child { min-width: 0; overflow-wrap: anywhere; }   /* 긴 분류 이름이 금액을 밀어내지 않게 */
+.budget-line .num { flex: none; color: var(--muted); font-size: var(--fs-small); }
+.budget-track { height: 8px; margin-top: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.budget-fill { height: 100%; border-radius: inherit; animation: budget-grow 400ms var(--ease-out); }   /* 통째로 다시 그려도 보이게 transition 대신 animation */
+@keyframes budget-grow { from { width: 0; } }
+.budget-ok { background: var(--faint); }       /* 차분한 회녹색 (어두운 바탕에서 대비 충분) */
+.budget-warn { background: var(--warning-fill); }          /* 주황: 금색 데이터색(--accent)과 구분되게 더 붉은 쪽 */
+.budget-over { background: var(--negative); }
+p.budget-over { background: none; color: var(--negative); font-size: 14px; line-height: 20px; font-weight: 600; margin-top: 4px; }
+/* 설정 입력칸: 좁은 폭에서 이름이 길어도 입력칸이 안 깨지게 */
+#budget-form label { min-width: 0; overflow-wrap: anywhere; }
+#budget-form input { min-width: 0; }
 #bill-form { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--rule); }
 
 /* 로그인 */
@@ -227,13 +274,13 @@ input::placeholder { color: var(--faint); }
 .login-panel .brand { padding: 0; }
 
 /* 입력 창 (떠 있는 것이라 그림자 허용) */
-dialog { background: var(--surface); color: var(--text); border: 0; border-radius: var(--radius-card); padding: var(--pad); width: min(92vw, 440px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5); /* taste-skill-ignore: 떠 있는 입력 창 */
+dialog { background: var(--surface); color: var(--text); border: 0; border-radius: var(--radius-card); padding: var(--pad); width: min(92vw, 440px); box-shadow: var(--shadow-float); /* taste-skill-ignore: 떠 있는 입력 창 */
   /* 닫힌 모양 = 닫히는 끝 모양. 아래 시간은 닫을 때(150ms) */
   opacity: 0; transform: scale(0.97);
   transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out), overlay 150ms allow-discrete, display 150ms allow-discrete; }
 dialog[open] { opacity: 1; transform: none; transition-duration: 200ms; }   /* 열 때(200ms) */
 @starting-style { dialog[open] { opacity: 0; transform: scale(0.97); } }
-dialog::backdrop { background: rgba(0, 0, 0, 0.7); opacity: 0;
+dialog::backdrop { background: var(--scrim); opacity: 0;
   transition: opacity 150ms var(--ease-out), overlay 150ms allow-discrete, display 150ms allow-discrete; }
 dialog[open]::backdrop { opacity: 1; transition-duration: 200ms; }
 @starting-style { dialog[open]::backdrop { opacity: 0; } }
@@ -266,6 +313,16 @@ dialog h2 { margin-bottom: 14px; }
   .canvas { padding: 16px 16px 32px; }
   .tabbar { display: grid; grid-template-columns: repeat(4, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 3; background: var(--ground); border-top: 1px solid var(--rule); padding: 4px max(8px, env(safe-area-inset-right)) calc(4px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
   .tabbar .nav-item { height: 48px; text-align: center; }
+  /* 눌리는 영역만 44px로 (겉모양 그대로). 이웃 버튼과 겹치지 않는 만큼만 넓힘 */
+  .icon-btn, .chips button, .seg button { position: relative; }
+  .icon-btn::after { content: ""; position: absolute; inset: -6px; }          /* 32 -> 44, 양옆은 글자(strong)라 겹침 없음 */
+  .chips { row-gap: 12px; }   /* 위 칩 버튼 6px + 아래 칩 버튼 6px = 12px: 줄 사이 눌림 영역이 겹치지 않음 */
+  .chips button::after { content: ""; position: absolute; inset: -9px -4px -9px 0; }   /* 높이 26 -> 44, 왼쪽(이름 쪽) 0, 오른쪽은 칩 끝(패딩 4px)까지만 */
+  .seg button::after { content: ""; position: absolute; inset: -7px 0; }     /* 30 -> 44, 위아래만 */
+  .seg.acct-tabs button { height: 44px; }   /* 이 줄은 가로 스크롤 상자라 ::after가 잘림 -> 실제 높이를 키움 */
+  .seg.acct-tabs button::after { display: none; }
+  .text-btn { padding: 11px 8px; margin: -7px -8px; }   /* 글자 22px + 위아래 11px = 44px, 마진으로 자리는 그대로 */
+  .acct-link { min-height: 44px; align-items: center; }
 }
 @media (max-width: 640px) {
   .grid-main { grid-template-columns: 1fr; }
@@ -290,7 +347,7 @@ dialog h2 { margin-bottom: 14px; }
 }
 /* ---------- 아이폰 느낌 ---------- */
 /* 위·아래 막대: 뒤가 은은하게 비치는 반투명 (애플 방식). 요청으로 넣은 것이라 검사 예외 */
-.topbar, .tabbar { background: rgba(11, 20, 17, 0.82); -webkit-backdrop-filter: saturate(1.4) blur(20px); backdrop-filter: saturate(1.4) blur(20px); /* taste-skill-ignore: 애플 느낌 요청 */ }
+.topbar, .tabbar { background: var(--bar-glass); -webkit-backdrop-filter: saturate(1.4) blur(20px); backdrop-filter: saturate(1.4) blur(20px); /* taste-skill-ignore: 애플 느낌 요청 */ }
 @media (max-width: 860px) {
   /* 아이폰은 글자 16px 미만인 입력칸을 누르면 화면이 확대돼 버림 */
   input, select { font-size: 16px; }
@@ -303,7 +360,26 @@ dialog h2 { margin-bottom: 14px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *:not(dialog) { transition: none !important; }
+  .budget-fill { animation: none; }
   dialog, dialog[open] { transform: none; }   /* 크기 움직임은 빼고 페이드만 남김 */
   @starting-style { dialog[open] { transform: none; } }
-  .btn:active, .icon-btn:active, .row-btn:active { transform: none; opacity: 0.7; }   /* 크기 대신 살짝 어두워짐으로 눌림 표시 */
+  .btn:not(:disabled):active, .icon-btn:active, .row-btn:active { transform: none; opacity: 0.7; }   /* 크기 대신 살짝 어두워짐으로 눌림 표시 */
 }
+
+/* 저장 확인 알림: 그림자 없이 밝기 한 단계(--raised)로만 구분. 화면 아래 가운데, 아래 막대·홈 인디케이터 위 */
+#toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 100;
+  width: max-content; max-width: min(420px, calc(100vw - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  padding: 10px 16px; border-radius: var(--radius-inner); background: var(--raised); color: var(--text);
+  font-size: var(--fs-body); line-height: 22px; text-align: center; overflow-wrap: anywhere; word-break: keep-all;
+  pointer-events: none;   /* 클릭·포커스를 가로채지 않음 (뒤의 버튼을 그대로 누를 수 있음) */
+  /* 등장 150ms / 퇴장 150ms, 위로 살짝 떠오르며 페이드. transform은 가운데 정렬용이라 translate 속성을 따로 씀 */
+  opacity: 1; translate: 0 0;
+  transition: opacity 150ms var(--ease-out), translate 150ms var(--ease-out), display 150ms allow-discrete; }
+#toast[hidden] { display: none; opacity: 0; translate: 0 8px; }
+@starting-style { #toast { opacity: 0; translate: 0 8px; } }
+@media (max-width: 860px) {
+  #toast { bottom: calc(72px + 16px + env(safe-area-inset-bottom)); }   /* 아래 메뉴 막대(72px) 바로 위 */
+}
+/* '월말 예상' 줄: 통장 줄(.acct-link)보다 작고 흐리게(.meta), 오른쪽 금액 줄에 맞춤. 음수는 "-"가 글자로 남아 색 없이도 읽힘 */
+.lane-accts .meta { text-align: right; margin-top: -2px; font-variant-numeric: tabular-nums; }
+.neg { color: var(--negative) !important; }

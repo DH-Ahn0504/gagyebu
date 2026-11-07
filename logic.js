@@ -32,10 +32,11 @@
   // 거래 하나가 이 통장 잔액을 얼마나 바꾸는지. 통장이 없는 옛 기록은 생활비 통장으로 봄
   function delta(t, accountId) {
     const from = t.account_id || "everyday";
-    if (t.type === "income") return from === accountId ? t.amount_cents : 0;
-    if (t.type === "expense") return from === accountId ? -t.amount_cents : 0;
+    const n = Number.isFinite(t.amount_cents) ? t.amount_cents : 0; // 망가진 금액은 0으로 (NaN 방지)
+    if (t.type === "income") return from === accountId ? n : 0;
+    if (t.type === "expense") return from === accountId ? -n : 0;
     if (t.type === "transfer") {
-      return (t.transfer_account_id === accountId ? t.amount_cents : 0) - (from === accountId ? t.amount_cents : 0);
+      return (t.transfer_account_id === accountId ? n : 0) - (from === accountId ? n : 0);
     }
     return 0;
   }
@@ -106,7 +107,7 @@
     for (const t of txns) {
       if (t.type === "transfer") continue;
       if (accountId && (t.account_id || "everyday") !== accountId) continue;
-      r[t.type] += t.amount_cents;
+      r[t.type] += Number.isFinite(t.amount_cents) ? t.amount_cents : 0;
     }
     return r;
   }
@@ -144,10 +145,47 @@
     return out;
   }
 
+  // 예산 대비 지출: pct는 내림(79.9%가 80으로 보이지 않게). 예산이 없으면 null
+  function budgetStatus(spentCents, budgetCents) {
+    if (!(budgetCents > 0)) return null;
+    const pct = Math.floor((spentCents * 100) / budgetCents);
+    return { pct, level: pct >= 100 ? "over" : pct >= 80 ? "warn" : "ok" };
+  }
+
+  // 예산이 있는 지출 분류의 이번 달 진행 상황 (지출 0도 포함)
+  function budgetRows(categories, monthTxns) {
+    return categories
+      .filter((c) => c.type === "expense" && c.budget_cents > 0)
+      .map((c) => {
+        const spent = sumCents(monthTxns.filter((t) => t.type === "expense" && t.category === c.name));
+        return { name: c.name, spent, budget: c.budget_cents, ...budgetStatus(spent, c.budget_cents) };
+      });
+  }
+
+  const newest = (a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at);
+
+  // 같은 종류에서 내용이 정확히 같은 가장 최근 내역 (없으면 null)
+  function suggestFor(txns, type, text) {
+    return txns.filter((t) => t.type === type && t.description === text).sort(newest)[0] || null;
+  }
+
+  // 같은 종류에서 최근에 쓴 내용 (중복 없이, 최근 순, 최대 limit개)
+  function recentDescriptions(txns, type, limit = 30) {
+    const names = txns.filter((t) => t.type === type && t.description).sort(newest).map((t) => t.description);
+    return [...new Set(names)].slice(0, limit);
+  }
+
+  // 월말 예상 잔액: 지금 잔액 − 남은 자동 지출 중 이 통장에서 빠질 합계 (통장 없으면 생활비 통장)
+  // 금액(amount_cents) 합계. 숫자가 아닌 금액은 건너뜀 (화면에 NaN이 안 뜨게)
+  const sumCents = (list) => list.reduce((s, x) => s + (Number.isFinite(x.amount_cents) ? x.amount_cents : 0), 0);
+  const projectedBalance = (account, txns, billsLeft) => !account ? null :
+    balanceOn(account, txns) - sumCents(billsLeft.filter((b) => (b.account_id || "everyday") === account.id));
+
   const api = {
     ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, TYPE_LABEL,
     formatCents, parseAmount, delta, balanceOn, baseFor, toDateStr, addMonths, addDays,
     dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
+    budgetStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,
   };
   if (typeof module !== "undefined") module.exports = api;
   else root.Logic = api;
