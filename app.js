@@ -49,12 +49,12 @@
 
   // ---------- 내역 입력 창 (새 입력과 수정에 같이 씀) ----------
   let toastTimer;
-  function toast(text) {
+  function toast(text, ms = 2500) {
     const el = $("toast");
     el.textContent = text;
     el.hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => { el.hidden = true; }, 2500);
+    toastTimer = setTimeout(() => { el.hidden = true; }, ms);
   }
 
   function fillTxnForm(form, t) {
@@ -105,12 +105,11 @@
     if (t.catTouched && form.category) form.category.dataset.touched = "1";
     for (const name of ["category", "account_id"]) form[name]?.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
     const del = form.querySelector("[data-delete]");
-    if (del) del.onclick = async () => {
-      if (!confirm(`'${t.description}' ${fmt(t.amount_cents)} 내역을 삭제할까요?`)) return;
-      await S.deleteTxn(t.id);
-      $("edit-dialog").close();
-      await refresh();
-      toast(`${t.description} 삭제했어요`);
+    if (del) del.onclick = () => {
+      const o = t.orig || t; // 종류 버튼을 눌러도 처음 열었던 내역을 보여줌
+      if (busy || !confirm(`'${o.description}' ${fmt(o.amount_cents)} 내역을 삭제할까요?`)) return;
+      save(form, del, () => S.deleteTxn(t.id), "삭제하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.",
+        () => { $("edit-dialog").close(); toast(`${o.description} 삭제했어요`); });
     };
   }
 
@@ -144,17 +143,17 @@
     const form = $("edit-form");
     $("edit-title").textContent = t.id ? "내역 수정" : "내역 추가";
     fillTxnForm(form, t);
-    form.onsubmit = async (e) => {
+    form.onsubmit = (e) => {
       e.preventDefault();
       const v = readFields(form);
       const error = validate(v, t.id ? t : null);
       form.querySelector(".error").textContent = error;
       if (error) return;
-      if (t.id) await S.updateTxn({ ...v, id: t.id });
-      else await S.addTxn({ ...v, created_by: me.name });
-      $("edit-dialog").close();
-      await refresh();
-      toast(t.id ? `${v.description} 수정했어요` : `${v.category || v.description} ${fmt(v.amount_cents)} 추가했어요`);
+      save(form, e.submitter || form.querySelector("[type=submit]"),
+        () => (t.id ? S.updateTxn({ ...v, id: t.id }) : S.addTxn({ ...v, created_by: me.name })),
+        t.id ? "수정하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요."
+          : "저장하지 못했어요. 이미 저장됐을 수도 있으니 닫고 목록에서 확인한 뒤, 없을 때만 다시 추가해 주세요.",
+        () => { $("edit-dialog").close(); toast(t.id ? `${v.description} 수정했어요` : `${v.category || v.description} ${fmt(v.amount_cents)} 추가했어요`); });
     };
     $("edit-dialog").showModal();
     form.amount.focus();
@@ -378,7 +377,7 @@
     const bills = [...data.bills].sort((a, b) => a.due_day - b.due_day);
     $("bill-total").textContent = bills.length ? `매달 ${bills.length}건 · 합계 ${fmt(L.sumCents(bills))}` : "";
     $("bill-list").innerHTML = bills.length ? bills.map((b) => `<li class="row-static">
-      <span class="day-chip"><b class="num">${b.due_day}</b>일</span>
+      <span class="day-chip"><b class="num">${esc(b.due_day)}</b>일</span>
       <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</span></span>
       <span class="row-amt num">−${amtHtml(b.amount_cents)}</span>
       <button class="text-btn" data-delbill="${esc(b.id)}" aria-label="${esc(b.description)} 자동 지출 삭제">삭제</button></li>`).join("")
@@ -393,7 +392,7 @@
     $("crumb").hidden = view === "main";
     $("crumb").textContent = { history: "내역", accounts: "통장", settings: "설정" }[view] || "";
     const snowBox = $("snow-setting");
-    if (snowBox) snowBox.hidden = document.documentElement.dataset.theme !== "winter"; // 계절 효과는 겨울만
+    if (snowBox) snowBox.hidden = !["winter", "autumn"].includes(document.documentElement.dataset.theme); // 계절 효과는 겨울·가을만 (snow.js와 같은 목록)
     window.scrollTo(0, 0);
     render();
   }
@@ -406,6 +405,28 @@
     if (v === "settings") renderSettings();
   }
   async function refresh() { data = await S.load(); render(); }
+
+  // 저장은 한 번에 하나만: 저장 중이면 무시, 버튼 끄기, 실패하면 그 폼의 .error 칸에 문구 (예산 폼과 같은 방식)
+  let busy = false;
+  const errBox = (form) => {
+    let p = form.querySelector(".error");
+    if (!p) { p = document.createElement("p"); p.className = "error"; p.setAttribute("role", "alert"); form.appendChild(p); }
+    return p;
+  };
+  async function save(form, btn, write, failMsg, onOk) {
+    if (busy) return;
+    busy = true;
+    if (btn) btn.disabled = true;
+    let msg = "", ok = false;
+    try { await write(); ok = true; if (onOk) onOk(); }
+    catch (err) { console.error(err); msg = failMsg; }
+    try { await refresh(); }
+    catch (err) {
+      console.error(err);
+      if (ok) { msg = "저장은 됐지만 화면을 새로고침하지 못했어요. 페이지를 다시 열어 주세요."; toast(msg, 6000); }
+    } finally { busy = false; if (btn) btn.disabled = false; }
+    errBox(form).textContent = msg;
+  }
 
   // ---------- 버튼 연결 ----------
   document.querySelectorAll(".nav-item").forEach((b) => b.addEventListener("click", () => show(b.dataset.view)));
@@ -424,18 +445,26 @@
     if (current() === "accounts") renderAccounts(); else show("accounts");
   });
 
-  $("balance-form").addEventListener("submit", async (e) => {
+  $("balance-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
-    const bases = {};
+    const form = e.target, err = errBox(form);
+    const changed = [];   // 사용자가 바꾼 통장만 저장
     for (const a of data.accounts) {
-      const cents = L.parseAmount(f.get(a.id));
-      if (!(cents >= 0)) { e.target.querySelector(".error").textContent = `${a.name} 금액을 확인해 주세요.`; return; }
-      bases[a.id] = L.baseFor(a.id, cents, data.txns);
+      const input = form.elements[a.id];
+      if (!input) continue;
+      if (input.value === input.defaultValue) continue;
+      const cents = L.parseAmount(input.value);
+      if (!(cents >= 0)) { err.textContent = `${a.name} 금액을 확인해 주세요.`; return; }
+      changed.push([a.id, cents]);
     }
-    await S.setBases(bases);
-    document.activeElement.blur();
-    await refresh();
+    err.textContent = "";
+    if (!changed.length) return;
+    save(form, form.querySelector("button"), async () => {
+      const fresh = await S.load();   // 저장 직전의 최신 내역으로 계산
+      const bases = {};
+      for (const [id, cents] of changed) bases[id] = L.baseFor(id, cents, fresh.txns);
+      await S.setBases(bases);
+    }, "저장하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", () => document.activeElement.blur());
   });
 
   let budgetSaving = false;
@@ -472,31 +501,32 @@
     }
   });
 
-  $("cat-form").addEventListener("submit", async (e) => {
+  $("cat-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
+    const form = e.target, f = new FormData(form);
     const name = String(f.get("name")).trim();
-    if (name) { await S.addCategory(f.get("type"), name); e.target.reset(); await refresh(); }
+    if (name) save(form, form.querySelector("button"), () => S.addCategory(f.get("type"), name), "분류를 추가하지 못했어요. 다시 시도해 주세요.", () => form.reset());
   });
-  document.addEventListener("click", async (e) => {
+  document.addEventListener("click", (e) => {
     const c = e.target.closest("[data-delcat]");
     const b = e.target.closest("[data-delbill]");
+    if (busy) return;
     if (c) {
-      const [type, name] = c.dataset.delcat.split("|");
-      if (confirm(`'${name}' 분류를 삭제할까요? 예전 내역의 분류는 그대로 남습니다.`)) { await S.deleteCategory(type, name); await refresh(); }
+      const k = c.dataset.delcat.indexOf("|"), type = c.dataset.delcat.slice(0, k), name = c.dataset.delcat.slice(k + 1);
+      if (confirm(`'${name}' 분류를 삭제할까요? 예전 내역의 분류는 그대로 남습니다.`)) save($("cat-form"), c, () => S.deleteCategory(type, name), "분류를 지우지 못했어요. 다시 시도해 주세요.");
     }
-    if (b && confirm("이 자동 지출을 삭제할까요? 이미 기록된 내역은 남습니다.")) { await S.deleteBill(b.dataset.delbill); await refresh(); }
+    if (b && confirm("이 자동 지출을 삭제할까요? 이미 기록된 내역은 남습니다.")) save($("bill-form"), b, () => S.deleteBill(b.dataset.delbill), "자동 지출을 지우지 못했어요. 다시 시도해 주세요.");
   });
 
-  $("bill-form").addEventListener("submit", async (e) => {
+  $("bill-form").addEventListener("submit", (e) => {
     e.preventDefault();
-    const f = new FormData(e.target);
+    const form = e.target, f = new FormData(form);
     const amount = L.parseAmount(f.get("amount"));
     const day = Number(f.get("due_day"));
-    if (!(amount > 0) || !(day >= 1 && day <= 31)) { alert("금액과 날짜(1~31일)를 확인해 주세요."); return; }
-    await S.addBill({ description: String(f.get("description")).trim(), amount_cents: amount, account_id: f.get("account_id"), due_day: day });
-    e.target.reset();
-    await refresh();
+    if (!(amount > 0) || !(day >= 1 && day <= 31)) { errBox(form).textContent = "금액과 날짜(1~31일)를 확인해 주세요."; return; }
+    save(form, form.querySelector("button"),
+      () => S.addBill({ description: String(f.get("description")).trim(), amount_cents: amount, account_id: f.get("account_id"), due_day: day }),
+      "자동 지출을 추가하지 못했어요. 다시 시도해 주세요.", () => form.reset());
   });
 
   $("h-mode").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { state.hist.mode = b.dataset.mode; renderHistory(); }));
@@ -515,7 +545,7 @@
   $("a-next").onclick = () => { state.acct.anchor = stepAnchor(state.acct.mode, state.acct.anchor, 1); renderAccounts(); };
 
   // ---------- 로그인 ----------
-  window.addEventListener("unhandledrejection", (e) => alert("문제가 생겼습니다: " + (e.reason && e.reason.message || e.reason)));
+  window.addEventListener("unhandledrejection", (e) => toast("문제가 생겼습니다: " + (e.reason && e.reason.message || e.reason), 6000));
   const shell = document.querySelector(".shell");
   const loggedIn = (yes) => {
     shell.classList.toggle("logged-out", !yes);
@@ -563,11 +593,36 @@
   $("logout").onclick = async () => { await S.signOut(); location.reload(); };
 
   // 상대방이 적은 내역을 15초마다 불러옴 (입력·수정 중에는 건너뜀)
-  setInterval(() => {
+  let offline = false;   // 끊김 안내는 한 번만, 다시 연결되면 초기화
+  setInterval(async () => {
     if (!me || !me.name || document.hidden || $("edit-dialog").open || current() === "login") return;
     if (document.activeElement && document.activeElement.closest("form")) return;
-    refresh();
+    try { await refresh(); offline = false; }
+    catch (err) {
+      console.error(err);
+      if (!offline) { offline = true; toast("연결이 끊겼어요. 인터넷을 확인해 주세요. 연결되면 자동으로 다시 불러와요.", 6000); }
+    }
   }, 15000);
 
-  start();
+  // 처음 불러오기 실패 시: 안내와 "다시 시도" 버튼 (화면 틀은 JS로 만듦)
+  function startFailed(err) {
+    console.error(err);
+    let box = $("start-error");
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "start-error";
+      box.setAttribute("role", "alert");
+      const p = document.createElement("p");
+      p.className = "error";
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = "다시 시도";
+      b.onclick = () => { box.hidden = true; start().catch(startFailed); };
+      box.append(p, b);
+      document.body.prepend(box);
+    }
+    box.firstChild.textContent = "불러오지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.";
+    box.hidden = false;
+  }
+  start().catch(startFailed);
 })();

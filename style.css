@@ -22,7 +22,7 @@
   --fs-small: 13px;
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);   /* 강한 ease-out: 창·버튼 움직임 공통 */
 }
-/* 색 전부 (겨울). :root, 를 같이 쓰는 이유: data-theme 속성이 없어도 겨울로 동작. 다른 계절은 파일 뒤쪽에 [data-theme="spring"] 블록으로 덮어씀 */
+/* 색 전부 (겨울). :root, 를 같이 쓰는 이유: data-theme 속성이 없어도 겨울로 동작. 다른 계절은 파일 뒤쪽에 [data-theme="autumn"]·"spring"·"summer" 블록으로 덮어씀 */
 :root, [data-theme="winter"] {
   --ground: #0b1411;
   --surface: #121f1a;
@@ -72,6 +72,147 @@
   --effect-ink-rgb: 244, 248, 246;
   color-scheme: dark;
 }
+/* 가을(견본 B 와인 저녁). 겨울 블록 뒤에 둘 것: 같은 우선순위라 뒤에 있는 쪽이 이김 */
+[data-theme="autumn"] {
+  --ground: #150c0e;
+  --surface: #1f1215;
+  --raised: #301b20;
+  --rule: #2b1a1f;
+  --control: #5e4448;
+  --control-edge: #86696a;
+  --text: #f8eee8;
+  --muted: #cdb6b0;
+  --faint: #a89089;
+  --accent: #f2c14e;
+  --cta: #c0392b;
+  --positive: #7fd6a0;
+  --negative: #ff8f8a;
+  --warning-fill: #ee7d2d;
+  --on-accent: #fff6ec;
+  --control-hover: #a1807f;
+  --cta-hover: #a22f23;
+  --danger-edge: #6a2a33;
+  --raised-hover: #402830;
+  --rule-strong: #3d262c;
+  --bar-glass: rgba(21, 12, 14, 0.82);
+  --scrim: rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --frost-edge: transparent;
+  --lead-glow: 0%;
+  --chart-1: var(--accent);
+  --chart-muted: #5e4448;
+  --grid: #35222a;
+  --axis-ink: var(--faint);
+  --ink: var(--text);
+  --chart-span: 0.12;
+  --person-dh: #1f2d44;  --person-dh-ink: #a9c6f5;
+  --person-ny: #3b2a22;  --person-ny-ink: #f5c2a5;   /* 나윤: 옅은 살구 (수입 초록과 구분) */
+  --person-us: #4a4a4c;  --person-us-ink: #ffffff;   /* 함께: 와인 기 없는 밝은 중립 회색 (나윤 갈색과 구분) */
+  --cat-1: #a4d46c;
+  --cat-2: #6fd08a;
+  --cat-3: #4ec3b0;
+  --cat-4: #66b8ec;
+  --cat-5: #8fa2f2;
+  --cat-6: #b394ee;
+  --cat-7: #d38aea;
+  --cat-8: #b3bec6;
+  --effect-ink-rgb: 242, 193, 78;
+  color-scheme: dark;
+}
+/* 봄 (견본 B 벚꽃 저녁) */
+[data-theme="spring"] {
+  --ground: #150d14;
+  --surface: #1e121d;
+  --raised: #2e1c2c;
+  --rule: #281a27;
+  --control: #5c4458;
+  --control-edge: #86698a;
+  --text: #f9f1f6;
+  --muted: #d0bccb;
+  --faint: #a893a4;
+  --accent: #f5a6c6;
+  --cta: #9448cc;
+  --positive: #7fd99a;
+  --negative: #ff8268;
+  --warning-fill: #f2c040;
+  --on-accent: #ffffff;
+  --control-hover: #a58aa9;
+  --cta-hover: #7c38b0;
+  --danger-edge: #6a2f33;
+  --raised-hover: #3d2639;
+  --rule-strong: #3a2437;
+  --bar-glass: rgba(21, 13, 20, 0.82);
+  --scrim: rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --frost-edge: transparent;
+  --lead-glow: 0%;
+  --chart-1: var(--accent);
+  --chart-muted: #5c4458;
+  --grid: #331f31;
+  --axis-ink: var(--faint);
+  --ink: var(--text);
+  --chart-span: 0.12;
+  --person-dh: #1f2d44;  --person-dh-ink: #a9c6f5;
+  --person-ny: #3b2a22;  --person-ny-ink: #f5c2a5;
+  --person-us: #2c2229;  --person-us-ink: #ffffff;
+  --cat-1: #6fb3f2;
+  --cat-2: #cfe06a;
+  --cat-3: #a898f5;
+  --cat-4: #4fd0b8;
+  --cat-5: #b5c3cc;
+  --cat-6: #62d0ee;
+  --cat-7: #d58ae0;
+  --cat-8: #9fcf9a;
+  --effect-ink-rgb: 245, 166, 198;
+  color-scheme: dark;
+}
+/* 여름 (견본 C 한여름 밤) */
+[data-theme="summer"] {
+  --ground: #0d0b1a;
+  --surface: #151228;
+  --raised: #211c3a;
+  --rule: #1b1731;
+  --control: #4d4580;
+  --control-edge: #6e66a6;
+  --text: #f5f3fc;
+  --muted: #c4bfe0;
+  --faint: #9a94c4;
+  --accent: #d6f060;
+  --cta: #bb3496;
+  --positive: #62e0b0;
+  --negative: #ff7aa0;
+  --warning-fill: #f2833a;
+  --on-accent: #ffffff;
+  --control-hover: #8d86c4;
+  --cta-hover: #9c2a7d;
+  --danger-edge: #5c2a40;
+  --raised-hover: #2d2650;
+  --rule-strong: #2b2548;
+  --bar-glass: rgba(13, 11, 26, 0.82);
+  --scrim: rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 12px 28px rgba(0, 0, 0, 0.5);
+  --frost-edge: transparent;
+  --lead-glow: 0%;
+  --chart-1: var(--accent);
+  --chart-muted: #4d4580;
+  --grid: #261f45;
+  --axis-ink: var(--faint);
+  --ink: var(--text);
+  --chart-span: 0.12;
+  --person-dh: #1f2d44;  --person-dh-ink: #a9c6f5;
+  --person-ny: #3b2a22;  --person-ny-ink: #f5c2a5;
+  --person-us: #24203a;  --person-us-ink: #ffffff;
+  --cat-1: #62b8f5;
+  --cat-2: #dd8fe0;
+  --cat-3: #4fd0b8;
+  --cat-4: #8f98f5;
+  --cat-5: #d9bd8a;
+  --cat-6: #b5c3cc;
+  --cat-7: #62d6ea;
+  --cat-8: #c0a0f0;
+  --effect-ink-rgb: 214, 240, 96;
+  color-scheme: dark;
+}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html { background: var(--ground); -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
@@ -92,7 +233,7 @@ h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 600; }
 .mark { width: 28px; height: 28px; display: block; flex: none; }
 .nav { display: grid; gap: 2px; }
 .nav-item { background: none; border: 0; text-align: left; height: 34px; padding: 0 8px; border-radius: 8px; color: var(--muted); cursor: pointer; }
-.nav-item[aria-current="page"] { color: var(--on-accent); font-weight: 500; }
+.nav-item[aria-current="page"] { color: var(--text); font-weight: 500; }
 
 .topbar { grid-column: 2; display: flex; align-items: center; gap: 16px; padding: 0 29px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 2; background: var(--ground); }
 .brand-phone { display: none; }
@@ -239,7 +380,7 @@ input::placeholder { color: var(--faint); }
 .chips button { width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
 /* 마우스가 있는 기기에서만 hover 효과 (휴대폰에서 눌린 채 남는 것 방지). 줄 순서 때문에 예전 우선순위를 :not()으로 유지 */
 @media (hover: hover) {
-  .nav-item:hover { color: var(--on-accent); }
+  .nav-item:hover { color: var(--text); }
   .btn:not(.primary):not(.danger):not(:disabled):hover { border-color: var(--control-hover); }
   .btn.primary:not(:disabled):hover { background: var(--cta-hover); border-color: var(--cta-hover); }
   .btn.danger:not(:disabled):hover { border-color: color-mix(in srgb, var(--negative) 40%, var(--danger-edge)); }   /* 테두리만 한 단계 밝게 */
@@ -383,3 +524,10 @@ dialog h2 { margin-bottom: 14px; }
 /* '월말 예상' 줄: 통장 줄(.acct-link)보다 작고 흐리게(.meta), 오른쪽 금액 줄에 맞춤. 음수는 "-"가 글자로 남아 색 없이도 읽힘 */
 .lane-accts .meta { text-align: right; margin-top: -2px; font-variant-numeric: tabular-nums; }
 .neg { color: var(--negative) !important; }
+
+/* 시작 실패 안내 상자(app.js가 만듦: div > p.error + button.btn). 화면 전체를 덮고 가운데 정렬. 토스트(100) 아래 */
+#start-error { position: fixed; inset: 0; z-index: 90; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 20px; padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); background: var(--ground); color: var(--text); text-align: center; }
+#start-error[hidden] { display: none; }   /* display:flex가 hidden을 이기지 않게 */
+#start-error .error { max-width: 22em; margin: 0; font-size: var(--fs-section); line-height: 1.6; word-break: keep-all; }
+#start-error .btn { min-width: 120px; height: 44px; font-size: var(--fs-body); }   /* 폰에서 누르기 쉬운 높이 */

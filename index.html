@@ -2,6 +2,7 @@
 <html lang="ko" data-theme="winter">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/; font-src https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/; img-src 'self' https://ohzyrsmimtmouzwhinxa.supabase.co; connect-src https://ohzyrsmimtmouzwhinxa.supabase.co; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <!-- 대체값. 자바스크립트(theme.js)가 현재 테마의 --ground로 갱신함 -->
   <meta name="theme-color" content="#0b1411">
@@ -11,9 +12,7 @@
   <title>하푸들의 가계부</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css" rel="stylesheet" integrity="sha384-2nNKoOPayicGa+aRguOQuiZP+RqQ4G3jalfDeOgftkKD7zBM2gJXTwcFqCZltdv0" crossorigin="anonymous">
   <link rel="stylesheet" href="style.css">
   <script src="theme.js"></script>
 </head>
@@ -189,8 +188,8 @@
         </div>
 
         <div class="setting" id="snow-setting">
-          <div class="setting-label"><h2>계절 효과</h2><p>겨울 동안 화면 위로 눈이 내립니다. 눈이 거슬리거나 배터리가 걱정되면 끄세요.</p></div>
-          <div class="panel"><button class="btn" id="snow-toggle" aria-pressed="true">눈 끄기</button></div>
+          <div class="setting-label"><h2>계절 효과</h2><p>겨울엔 눈, 가을엔 낙엽이 화면 위로 내립니다. 거슬리거나 배터리가 걱정되면 끄세요.</p></div>
+          <div class="panel"><button class="btn" id="snow-toggle" aria-pressed="true">효과 끄기</button></div>
         </div>
       </section>
 

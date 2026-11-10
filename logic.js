@@ -96,7 +96,7 @@
         t.date >= start && t.date <= end &&
         (!type || type === "all" || t.type === type) &&
         (!category || `${t.type}|${t.category || ""}` === category) &&
-        (!accountId || delta(t, accountId) !== 0 || (t.account_id || "everyday") === accountId)
+        (!accountId || delta(t, accountId) !== 0 || (t.account_id || "everyday") === accountId || t.transfer_account_id === accountId)
       )
       .sort((a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at));
   }
