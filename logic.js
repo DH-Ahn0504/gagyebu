@@ -16,7 +16,12 @@
   const TYPE_LABEL = { income: "수입", expense: "지출", transfer: "이체" };
 
   const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
-  const formatCents = (cents) => euro.format(cents / 100);
+  let warnedBadCents = false; // 경고는 세션당 한 번만
+  const formatCents = (cents) => {
+    if (Number.isFinite(cents)) return euro.format(cents / 100);
+    if (!warnedBadCents) { warnedBadCents = true; console.warn("금액을 읽지 못한 내역이 있어요"); }
+    return "-";
+  };
 
   // "12,5" "12.50" "1.234,56" "1,234.56" → 센트(정수). 읽을 수 없으면 NaN
   function parseAmount(text) {

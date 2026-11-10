@@ -98,6 +98,10 @@ const bad = [{ type: "expense", category: "식비", amount_cents: NaN, date: "20
 assert.deepEqual(L.totals(bad), { income: 0, expense: 700 });
 assert.equal(L.budgetRows([{ type: "expense", name: "식비", budget_cents: 1000 }], bad)[0].spent, 700);
 assert.equal(L.balanceOn(everyday, bad), (everyday.base_cents || 0) - 700);
+// 망가진 금액은 "NaN €" 대신 "-", 정상 금액 글자는 그대로
+assert.deepEqual([NaN, "abc", null, undefined].map(L.formatCents), ["-", "-", "-", "-"]);
+assert.equal(L.formatCents(123456), new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(1234.56));
+assert.equal(L.formatCents(0), "0,00 €");
 
 // 달 → 테마 (네 계절 CSS가 모두 있음: 3~5 spring, 6~8 summer, 9~11 autumn, 12~2 winter)
 const { themeForMonth, THEMES_AVAILABLE } = require("./theme.js");

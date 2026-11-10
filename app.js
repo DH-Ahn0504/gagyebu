@@ -366,7 +366,7 @@
     $("balance-total").textContent = `지금 통장 합계${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
     for (const type of ["expense", "income"]) {
       $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
-        `<li>${esc(name)}<button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
+        `<li><span class="chip-name" title="${esc(name)}">${esc(name)}</span><button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
     }
     if (!$("budget-form").contains(document.activeElement)) {
       $("budget-form").innerHTML = data.categories.filter((c) => c.type === "expense").map((c) =>
@@ -403,7 +403,9 @@
     if (v === "history") renderHistory();
     if (v === "accounts") renderAccounts();
     if (v === "settings") renderSettings();
+    drawnKey = JSON.stringify(data) + today();   // 자동 새로고침이 "달라졌나" 비교할 기준 (날짜 포함)
   }
+  let drawnKey = "";
   async function refresh() { data = await S.load(); render(); }
 
   // 저장은 한 번에 하나만: 저장 중이면 무시, 버튼 끄기, 실패하면 그 폼의 .error 칸에 문구 (예산 폼과 같은 방식)
@@ -552,7 +554,21 @@
     for (const id of ["side", "topbar", "tabbar"]) $(id).hidden = !yes;
   };
 
+  // 400ms 넘게 걸릴 때만 "불러오는 중" 표시 (처음부터 보이면 깜빡임). 성공·실패 모두 제거
   async function start() {
+    const timer = setTimeout(() => {
+      if ($("loading")) return;
+      const el = document.createElement("div");
+      el.id = "loading";
+      el.setAttribute("role", "status");
+      el.textContent = "불러오는 중…";
+      document.body.prepend(el);
+    }, 400);
+    try { await startInner(); }
+    finally { clearTimeout(timer); $("loading")?.remove(); }
+  }
+
+  async function startInner() {
     me = await S.me();
     if (!me || !me.name) {
       if (me && !me.name) {
@@ -597,7 +613,14 @@
   setInterval(async () => {
     if (!me || !me.name || document.hidden || $("edit-dialog").open || current() === "login") return;
     if (document.activeElement && document.activeElement.closest("form")) return;
-    try { await refresh(); offline = false; }
+    try {
+      const fresh = await S.load();
+      offline = false;
+      if (JSON.stringify(fresh) + today() === drawnKey) return;   // 똑같으면 다시 그리지 않음 (오류 문구·커서 유지)
+      const errs = ["budget-form", "balance-form"].map((id) => $(id).querySelector(".error")?.textContent || "");
+      data = fresh; render();
+      ["budget-form", "balance-form"].forEach((id, i) => { const p = $(id).querySelector(".error"); if (p) p.textContent = errs[i]; });
+    }
     catch (err) {
       console.error(err);
       if (!offline) { offline = true; toast("연결이 끊겼어요. 인터넷을 확인해 주세요. 연결되면 자동으로 다시 불러와요.", 6000); }

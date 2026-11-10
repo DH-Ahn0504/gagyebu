@@ -376,8 +376,9 @@ input::placeholder { color: var(--faint); }
 .row { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 .note { color: var(--muted); margin-top: 16px; }
 .chips { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
-.chips li { display: flex; align-items: center; gap: 2px; background: var(--raised); border-radius: 999px; height: 32px; padding: 0 4px 0 14px; white-space: nowrap; }
-.chips button { width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.chips li { display: flex; align-items: center; gap: 2px; background: var(--raised); border-radius: 999px; height: 32px; padding: 0 4px 0 14px; white-space: nowrap; max-width: 100%; }
+.chips .chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* overflow는 이름에만: li에 걸면 × 눌림 영역(::after)이 잘림 */
+.chips button { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; }
 /* 마우스가 있는 기기에서만 hover 효과 (휴대폰에서 눌린 채 남는 것 방지). 줄 순서 때문에 예전 우선순위를 :not()으로 유지 */
 @media (hover: hover) {
   .nav-item:hover { color: var(--text); }
@@ -531,3 +532,8 @@ dialog h2 { margin-bottom: 14px; }
 #start-error[hidden] { display: none; }   /* display:flex가 hidden을 이기지 않게 */
 #start-error .error { max-width: 22em; margin: 0; font-size: var(--fs-section); line-height: 1.6; word-break: keep-all; }
 #start-error .btn { min-width: 120px; height: 44px; font-size: var(--fs-body); }   /* 폰에서 누르기 쉬운 높이 */
+
+/* "불러오는 중…" 표시(app.js가 400ms 넘게 걸릴 때만 body에 넣고 끝나면 지움). 글자만, 움직임 없음. 클릭은 아래 화면으로 통과. #start-error(90) 아래 */
+#loading { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; pointer-events: none;
+  padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom)); color: var(--muted); font-size: var(--fs-body); text-align: center; }
+#loading[hidden] { display: none; }   /* display:grid가 hidden을 이기지 않게 */
