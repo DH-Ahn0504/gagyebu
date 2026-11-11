@@ -564,11 +564,12 @@
       el.textContent = "불러오는 중…";
       document.body.prepend(el);
     }, 400);
-    try { await startInner(); }
-    finally { clearTimeout(timer); $("loading")?.remove(); }
+    const hideLoading = () => { clearTimeout(timer); $("loading")?.remove(); };
+    try { await startInner(hideLoading); }
+    finally { hideLoading(); }
   }
 
-  async function startInner() {
+  async function startInner(hideLoading) {
     me = await S.me();
     if (!me || !me.name) {
       if (me && !me.name) {
@@ -585,6 +586,7 @@
     loggedIn(true);
     await S.runRecurring(today());
     data = await S.load();
+    hideLoading(); // 사진을 기다리는 동안 완성된 화면 위에 로딩 표시가 남지 않게
     show("main");
     const url = await S.photoUrl();
     if (url) { $("photo").src = url; $("photo-frame").hidden = false; }
