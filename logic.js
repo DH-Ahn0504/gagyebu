@@ -89,6 +89,12 @@
     return balanceOn(account, txns, uptoDate) + Object.values(mine).reduce((s, v) => s + v, 0);
   }
 
+  // 새 내역의 '실제 은행 통장' 기본값: 그 용돈 통장 몫이 양수로 더 큰 쪽. 동률·0 이하·용돈 통장 아님이면 생활비
+  const defaultBankFor = (accountId, accounts, txns) => {
+    const s = allowanceShares(accounts, txns), sv = s.savings[accountId] || 0;
+    return sv > 0 && sv > (s.everyday[accountId] || 0) ? "savings" : "everyday";
+  };
+
   // 화면에 입력한 '현재 잔액'이 되도록 하는 기준값.
   // accounts를 주면 생활비/저축은 입력값을 '은행 잔액'으로 보고 용돈 몫을 뺌
   const baseFor = (accountId, wantedCents, txns, accounts) => {
@@ -239,7 +245,7 @@
 
   const api = {
     ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, TYPE_LABEL,
-    REAL_ACCOUNTS, allowanceShares, bankBalance,
+    REAL_ACCOUNTS, allowanceShares, bankBalance, defaultBankFor,
     formatCents, parseAmount, delta, balanceOn, baseFor, basesFor, toDateStr, addMonths, addDays,
     dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
     budgetStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,

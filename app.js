@@ -88,7 +88,7 @@
         const orig = t.orig || t;
         const same = b.dataset.type === type;
         fillTxnForm(form, { ...f, id: t.id, orig, type: b.dataset.type, touched: !!form.account_id.dataset.touched,
-          catTouched: same && !!form.category?.dataset.touched,
+          catTouched: same && !!form.category?.dataset.touched, bankTouched: !!form.bank_account_id.dataset.touched,
           category: same ? f.category : t.id && b.dataset.type === orig.type ? orig.category : "" });
       }));
     form.querySelector("[data-cancel]").onclick = () => $("edit-dialog").close();
@@ -106,9 +106,13 @@
     if (t.catTouched && form.category) form.category.dataset.touched = "1";
     for (const name of ["category", "account_id"]) form[name]?.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
     // 은행 통장 칸은 용돈 통장이 돈이 나가는/들어오는 쪽으로만 낄 때 보임 (생활비·저축↔용돈 이체, 용돈→생활비·저축 이체는 숨김)
+    // 새 내역이고 사용자가 은행 통장 칸을 안 건드렸으면, 그 용돈 통장 몫이 큰 은행 통장을 기본으로 고름 (수정 화면은 저장된 값 그대로)
+    if (t.id || t.bankTouched) form.bank_account_id.dataset.touched = "1";
+    form.bank_account_id.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
     const syncBank = () => {
       const real = (id) => L.REAL_ACCOUNTS.includes(id);
       form.querySelector("[data-bank]").hidden = real(form.account_id.value) || (type === "transfer" && real(form.transfer_account_id.value));
+      if (!form.bank_account_id.dataset.touched) form.bank_account_id.value = L.defaultBankFor(form.account_id.value, data.accounts, data.txns);
     };
     for (const name of ["account_id", "transfer_account_id"]) form[name]?.addEventListener("change", syncBank);
     syncBank();

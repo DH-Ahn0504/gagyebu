@@ -96,6 +96,13 @@ assert.equal(L.baseFor("everyday", 5000, txns), 500); // 현재 잔액을 50€�
   // (b) 실제 통장→용돈 이체에 낡은 bank_account_id가 붙어 있어도 무시 (보내는 통장 몫으로 들어감)
   const stale = [T({ type: "transfer", amount_cents: 10000, account_id: "everyday", transfer_account_id: DH, bank_account_id: "savings" })];
   assert.deepEqual(L.allowanceShares(a0, stale), { everyday: { [DH]: 10000 }, savings: {} });
+  // 새 내역의 은행 통장 기본값: 몫이 큰 쪽 / 몫 없음·동률·음수는 생활비
+  const toDH = (from, n) => T({ type: "transfer", amount_cents: n, account_id: from, transfer_account_id: DH });
+  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 3000), toDH("savings", 5000)]), "savings");
+  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 5000), toDH("savings", 3000)]), "everyday");
+  assert.equal(L.defaultBankFor(DH, a0, []), "everyday");
+  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 3000), toDH("savings", 3000)]), "everyday");
+  assert.equal(L.defaultBankFor(DH, a0, xNeg), "everyday");
   // (c) 용돈 통장 기준값이 0이 아니어도 왕복: 입력한 은행 잔액 == bankBalance
   for (const id of ["everyday", "savings"]) {
     const a3 = accs(); a3[2].base_cents = 400; a3[3].base_cents = -150;
