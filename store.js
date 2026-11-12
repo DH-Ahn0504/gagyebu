@@ -21,6 +21,7 @@
   const txnRow = (t) => ({
     type: t.type, amount_cents: t.amount_cents, description: t.description, date: t.date,
     account_id: t.account_id, transfer_account_id: t.transfer_account_id || null, category: t.category || "",
+    bank_account_id: t.bank_account_id || null,
   });
 
   root.Store = {

@@ -271,7 +271,9 @@ h2 { font-size: var(--fs-section); line-height: 24px; font-weight: 600; }
 .panel { background: var(--surface); border-radius: var(--radius-card); padding: var(--pad); min-width: 0; box-shadow: inset 0 0 0 1px var(--frost-edge, transparent); /* taste-skill-ignore: 눈 서리 윤곽(겨울 포인트 1) */ }
 /* 겨울 포인트 2: 이번 달 카드 위쪽에만 번지는 촛불빛 */
 .summary { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) var(--lead-glow, 0%), var(--surface)), var(--surface) 55%); /* taste-skill-ignore: 겨울 포인트 2 */ }
-.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin-bottom: 16px; }
+#lanes-h { white-space: nowrap; } /* 제목은 중간에 안 끊기고, 긴 합계 라벨이 다음 줄로 내려감 */
+#lanes-meta { margin-left: auto; }
 .label { display: block; color: var(--muted); font-size: 13px; line-height: 18px; font-weight: 400; }
 .meta { color: var(--faint); font-size: var(--fs-small); }
 .figure { display: block; background: none; border: 0; padding: 0; text-align: left; font-size: var(--fs-kpi); line-height: 32px; font-weight: 500; white-space: nowrap; }
@@ -524,6 +526,7 @@ dialog h2 { margin-bottom: 14px; }
 }
 /* '월말 예상' 줄: 통장 줄(.acct-link)보다 작고 흐리게(.meta), 오른쪽 금액 줄에 맞춤. 음수는 "-"가 글자로 남아 색 없이도 읽힘 */
 .lane-accts .meta { text-align: right; margin-top: -2px; font-variant-numeric: tabular-nums; }
+.lane-accts .nw { white-space: nowrap; } /* 작은 글씨 줄은 조각(이름+금액) 단위로만 줄바꿈 */
 .neg { color: var(--negative) !important; }
 
 /* 시작 실패 안내 상자(app.js가 만듦: div > p.error + button.btn). 화면 전체를 덮고 가운데 정렬. 토스트(100) 아래 */

@@ -53,9 +53,60 @@
     return b;
   }
 
-  // 화면에 입력한 '현재 잔액'이 되도록 하는 기준값
-  const baseFor = (accountId, wantedCents, txns) =>
-    wantedCents - txns.reduce((s, t) => s + delta(t, accountId), 0);
+  // 은행에 실제로 있는 통장. 용돈 통장은 가상이라 돈이 이 둘 안에 들어 있음
+  const REAL_ACCOUNTS = ["everyday", "savings"];
+
+  // 용돈 통장 잔액이 실제로는 어느 은행 통장에 들어 있는지: { everyday: {용돈id: 센트}, savings: {...} }
+  // 내역마다 더하기만 하므로 순서와 상관없음. 몫이 마이너스여도 그대로 둠
+  // shortcut: 용돈→생활비/저축 이체는 은행에서 안 움직인다고 보고, 몫을 '받는 통장'에서 뺌(bank_account_id는 무시).
+  //   그래서 은행에서 진짜 돈을 뺀 것(용돈을 현금으로 찾기)은 이 이체로 표현 못 하고, 몫이 마이너스가 될 수 있음. 필요해지면 '출금' 종류를 따로 만들기
+  function allowanceShares(accounts, txns, uptoDate) {
+    const shares = { everyday: {}, savings: {} };
+    const add = (r, id, v) => { shares[r][id] = (shares[r][id] || 0) + v; };
+    for (const a of accounts) if (!REAL_ACCOUNTS.includes(a.id) && a.base_cents) add("everyday", a.id, a.base_cents);
+    for (const t of txns) {
+      if (uptoDate && t.date > uptoDate) continue;
+      const n = Number.isFinite(t.amount_cents) ? t.amount_cents : 0;
+      const from = t.account_id || "everyday", to = t.transfer_account_id;
+      const bank = REAL_ACCOUNTS.includes(t.bank_account_id) ? t.bank_account_id : "everyday";
+      const fromReal = REAL_ACCOUNTS.includes(from), toReal = REAL_ACCOUNTS.includes(to);
+      if (t.type === "income" && !fromReal) add(bank, from, n);
+      else if (t.type === "expense" && !fromReal) add(bank, from, -n);
+      else if (t.type === "transfer") {
+        const where = toReal ? to : bank; // 용돈이 나가는 쪽의 몫 위치
+        if (!fromReal) add(where, from, -n);
+        if (to && !toReal) add(fromReal ? from : where, to, n);
+      }
+    }
+    return shares;
+  }
+
+  // 은행 앱에서 보이는 잔액 = 앱 잔액 + 그 은행 통장 안에 있는 용돈 몫
+  function bankBalance(realId, accounts, txns, uptoDate) {
+    const account = accounts.find((a) => a.id === realId);
+    if (!account) return null; // 통장 줄이 없으면 화면에 '-'로 보임
+    const mine = allowanceShares(accounts, txns, uptoDate)[realId] || {};
+    return balanceOn(account, txns, uptoDate) + Object.values(mine).reduce((s, v) => s + v, 0);
+  }
+
+  // 화면에 입력한 '현재 잔액'이 되도록 하는 기준값.
+  // accounts를 주면 생활비/저축은 입력값을 '은행 잔액'으로 보고 용돈 몫을 뺌
+  const baseFor = (accountId, wantedCents, txns, accounts) => {
+    const mine = accounts && REAL_ACCOUNTS.includes(accountId) ? allowanceShares(accounts, txns)[accountId] : {};
+    return wantedCents - txns.reduce((s, t) => s + delta(t, accountId), 0) - Object.values(mine).reduce((s, v) => s + v, 0);
+  };
+
+  // 설정에서 여러 통장을 한꺼번에 바꿀 때: 용돈 통장 기준값을 먼저 구해 반영한 뒤 생활비/저축을 계산
+  // (용돈 몫이 같이 바뀌므로 순서가 중요). changed: [[통장id, 센트]] → { id: 기준값 }
+  function basesFor(changed, txns, accounts) {
+    const accs = accounts.map((a) => ({ ...a })), bases = {};
+    const isReal = ([id]) => REAL_ACCOUNTS.includes(id);
+    for (const [id, cents] of [...changed.filter((c) => !isReal(c)), ...changed.filter(isReal)]) {
+      bases[id] = baseFor(id, cents, txns, accs);
+      accs.find((a) => a.id === id).base_cents = bases[id];
+    }
+    return bases;
+  }
 
   const pad = (n) => String(n).padStart(2, "0");
   const toDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -188,7 +239,8 @@
 
   const api = {
     ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, TYPE_LABEL,
-    formatCents, parseAmount, delta, balanceOn, baseFor, toDateStr, addMonths, addDays,
+    REAL_ACCOUNTS, allowanceShares, bankBalance,
+    formatCents, parseAmount, delta, balanceOn, baseFor, basesFor, toDateStr, addMonths, addDays,
     dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
     budgetStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,
   };

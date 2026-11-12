@@ -70,6 +70,7 @@
       <label>내용 <input name="description" maxlength="60" list="desc-list" value="${esc(t.description)}" required><datalist id="desc-list">${L.recentDescriptions(data.txns, type).map((d) => `<option value="${esc(d)}"></option>`).join("")}</datalist></label>
       <label>날짜 <input name="date" type="date" value="${esc(t.date || today())}" required></label>
       <label>${type === "transfer" ? "보내는 통장" : "통장"} <select name="account_id">${accountOptions(t.account_id || "everyday")}</select></label>
+      <label data-bank hidden>실제 은행 통장 (생활비/저축) <select name="bank_account_id">${L.REAL_ACCOUNTS.map((id) => `<option value="${id}" ${id === (t.bank_account_id || "everyday") ? "selected" : ""}>${esc(accountName(id))}</option>`).join("")}</select></label>
       ${type === "transfer"
         ? `<label>받는 통장 <select name="transfer_account_id">${accountOptions(t.transfer_account_id || "savings")}</select></label>`
         : `<label>분류 <select name="category">${cats.map((c) => `<option value="${esc(c)}" ${c === t.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`}
@@ -104,6 +105,13 @@
     if (t.touched ?? t.account_id) form.account_id.dataset.touched = "1";
     if (t.catTouched && form.category) form.category.dataset.touched = "1";
     for (const name of ["category", "account_id"]) form[name]?.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
+    // 은행 통장 칸은 용돈 통장이 돈이 나가는/들어오는 쪽으로만 낄 때 보임 (생활비·저축↔용돈 이체, 용돈→생활비·저축 이체는 숨김)
+    const syncBank = () => {
+      const real = (id) => L.REAL_ACCOUNTS.includes(id);
+      form.querySelector("[data-bank]").hidden = real(form.account_id.value) || (type === "transfer" && real(form.transfer_account_id.value));
+    };
+    for (const name of ["account_id", "transfer_account_id"]) form[name]?.addEventListener("change", syncBank);
+    syncBank();
     const del = form.querySelector("[data-delete]");
     if (del) del.onclick = () => {
       const o = t.orig || t; // 종류 버튼을 눌러도 처음 열었던 내역을 보여줌
@@ -123,6 +131,7 @@
       account_id: f.get("account_id"),
       transfer_account_id: form.dataset.type === "transfer" ? f.get("transfer_account_id") : "",
       category: form.dataset.type === "transfer" ? "" : f.get("category") || "",
+      bank_account_id: form.querySelector("[data-bank]").hidden ? null : f.get("bank_account_id"), // 용돈과 무관하면 null
     };
   }
 
@@ -133,6 +142,7 @@
     const ids = data.accounts.map((a) => a.id);
     if (!ids.includes(t.account_id) || (t.type === "transfer" && !ids.includes(t.transfer_account_id))) return "통장을 다시 선택해 주세요.";
     if (t.type === "transfer" && t.transfer_account_id === t.account_id) return "보내는 통장과 다른 받는 통장을 선택해 주세요.";
+    if (t.bank_account_id !== null && !L.REAL_ACCOUNTS.includes(t.bank_account_id)) return "은행 통장을 다시 선택해 주세요.";
     if (t.type !== "transfer" && !t.category) return "분류를 선택해 주세요.";
     // 그 종류의 분류여야 함. 단, 수정 중인 옛 내역의 (지워진) 분류는 그대로 저장 가능
     if (t.type !== "transfer" && !catNames(t.type).includes(t.category) && !(orig && orig.type === t.type && orig.category === t.category)) return "분류를 다시 선택해 주세요.";
@@ -211,9 +221,11 @@
   }
 
   // 이번 달 화면 통장 줄 아래: 월말 예상 잔액 (음수면 빨간 글자)
-  function projected(id, due) {
-    const cents = L.projectedBalance(data.accounts.find((a) => a.id === id), data.txns, due);
+  // extra: 생활비/저축 줄은 큰 숫자가 은행 잔액이라 현재 용돈 몫 합을 더해 은행 기준으로 맞춤
+  function projected(id, due, extra = 0) {
+    let cents = L.projectedBalance(data.accounts.find((a) => a.id === id), data.txns, due);
     if (cents === null) return "";
+    cents += extra;
     return `<p class="meta num${cents < 0 ? " neg" : ""}">월말 예상 ${esc(fmt(cents))}</p>`;
   }
 
@@ -249,15 +261,32 @@
 
     // 동현 · 함께 · 나윤
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
+    const shares = L.allowanceShares(data.accounts, data.txns); // 용돈 몫: { everyday: {용돈id: 센트}, savings: {...} }. 0인 몫은 숨기고 마이너스는 그대로 보임
+    const nonZero = (obj) => Object.entries(obj || {}).filter(([, v]) => v);
+    // 통장 줄 아래 작은 글씨 한 줄 (기존 .meta 오른쪽 정렬 스타일 재사용)
+    const note = (text) => `<p class="meta num">${text}</p>`;
+    const acctLine = (id) => {
+      const real = L.REAL_ACCOUNTS.includes(id);
+      const mine = real ? nonZero(shares[id]) : [];
+      const shown = real ? L.bankBalance(id, data.accounts, data.txns) : bal[id]; // 생활비·저축은 은행 잔액, 용돈은 앱 잔액
+      let sub = "";
+      const piece = (text) => `<span class="nw">${text}</span>`; // 조각 단위로만 줄바꿈 (이름·금액 중간에서 안 끊김)
+      if (mine.length) sub = note(`${piece("그중")} ${mine.map(([aid, v]) => piece(`${esc(accountName(aid))} ${esc(fmt(v))}`)).join(" · ")} · ${piece(`순수 ${esc(fmt(bal[id]))}`)}`);
+      else if (!real) {
+        const where = L.REAL_ACCOUNTS.map((r) => [r, (shares[r] || {})[id]]).filter(([, v]) => v);
+        if (where.length) sub = note(`(${where.map(([r, v]) => piece(`${esc(accountName(r))} ${esc(fmt(v))}`)).join(" · ")}에 있음)`);
+      }
+      return `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(shown)}</span></button>${sub}${isNow ? projected(id, due, real ? Object.values(shares[id] || {}).reduce((s, v) => s + v, 0) : 0) : ""}`;
+    };
     $("lanes").innerHTML = LANES.map((lane) => {
       const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + L.sumCents([t]), 0);
       return `<div class="lane">
         <div class="lane-head"><span class="avatar ${lane.key === "us" ? "" : lane.key}" aria-hidden="true">${lane.initial}</span>${lane.name}</div>
         <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${amtHtml(spent)}</span></div>
-        <div class="lane-accts">${lane.accounts.map((id) => `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>${isNow ? projected(id, due) : ""}`).join("")}</div>
+        <div class="lane-accts">${lane.accounts.map(acctLine).join("")}</div>
       </div>`;
     }).join("");
-    $("lanes-meta").innerHTML = `통장 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
+    $("lanes-meta").innerHTML = `전체 합계 (용돈 중복 없이) <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
 
     txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`, true);
 
@@ -360,10 +389,11 @@
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     if (!$("balance-form").contains(document.activeElement)) {
       $("balance-form").innerHTML = data.accounts.map((a) =>
-        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
+        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${((L.REAL_ACCOUNTS.includes(a.id) ? L.bankBalance(a.id, data.accounts, data.txns) : bal[a.id]) / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
+        `<p class="note">생활비·저축 칸은 은행 앱에 보이는 잔액이에요. 용돈 통장 돈이 그 안에 들어 있어요.</p>` +
         `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
     }
-    $("balance-total").textContent = `지금 통장 합계${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
+    $("balance-total").textContent = `전체 합계 (용돈 중복 없이) ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
     for (const type of ["expense", "income"]) {
       $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
         `<li><span class="chip-name" title="${esc(name)}">${esc(name)}</span><button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
@@ -463,9 +493,7 @@
     if (!changed.length) return;
     save(form, form.querySelector("button"), async () => {
       const fresh = await S.load();   // 저장 직전의 최신 내역으로 계산
-      const bases = {};
-      for (const [id, cents] of changed) bases[id] = L.baseFor(id, cents, fresh.txns);
-      await S.setBases(bases);
+      await S.setBases(L.basesFor(changed, fresh.txns, fresh.accounts));
     }, "저장하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", () => document.activeElement.blur());
   });
 
