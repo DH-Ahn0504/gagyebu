@@ -29,101 +29,10 @@ const brokenXfer = { type: "transfer", amount_cents: NaN, account_id: "everyday"
 assert.equal(L.filterTxns([brokenXfer], { start: "2026-11-01", end: "2026-11-30", accountId: "savings" }).length, 1);
 assert.equal(L.baseFor("everyday", 5000, txns), 500); // 현재 잔액을 50€로 맞추면 기준값 5€
 
-// 용돈 몫과 은행 잔액
+// 여러 통장 기준값을 한꺼번에 구해도 각각 입력한 잔액이 됨
 {
-  const DH = "donghyun_allowance", NY = "nayoon_allowance";
-  const accs = () => [{ id: "everyday", base_cents: 10000 }, { id: "savings", base_cents: 5000 }, { id: DH, base_cents: 0 }, { id: NY, base_cents: 0 }];
-  const T = (o) => ({ date: "2026-11-01", created_at: "1", amount_cents: 0, ...o });
-  const bank = (id, a, ts, d) => L.bankBalance(id, a, ts, d);
-  const appSum = (a, ts, d) => a.reduce((s, x) => s + L.balanceOn(x, ts, d), 0);
-  const a0 = accs();
-  // 생활비→동현 100: 앱 잔액은 −100, 은행 잔액은 그대로, 몫은 생활비 안의 동현 100
-  const x1 = [T({ type: "transfer", amount_cents: 10000, account_id: "everyday", transfer_account_id: DH })];
-  assert.equal(L.balanceOn(a0[0], x1), 0);
-  assert.equal(bank("everyday", a0, x1), 10000);
-  assert.equal(bank("everyday", [], x1), null); // 통장 줄이 없어도 오류 없이 null
-  assert.deepEqual(L.allowanceShares(a0, x1), { everyday: { [DH]: 10000 }, savings: {} });
-  // 저축 50 + 생활비 100 → 동현 합산
-  const x2 = [...x1, T({ type: "transfer", amount_cents: 5000, account_id: "savings", transfer_account_id: DH, created_at: "2" })];
-  assert.deepEqual(L.allowanceShares(a0, x2), { everyday: { [DH]: 10000 }, savings: { [DH]: 5000 } });
-  assert.equal(L.balanceOn(a0[2], x2), 15000);
-  // 동현 지출 30, 빠진 은행 = 저축 / 비면 생활비
-  const x3 = [...x2, T({ type: "expense", amount_cents: 3000, account_id: DH, bank_account_id: "savings", created_at: "3" })];
-  assert.deepEqual(L.allowanceShares(a0, x3).savings, { [DH]: 2000 });
-  const x4 = [...x2, T({ type: "expense", amount_cents: 3000, account_id: DH, created_at: "3" })];
-  assert.deepEqual(L.allowanceShares(a0, x4).everyday, { [DH]: 7000 });
-  // 용돈 수입은 bank_account_id(비면 생활비) 몫 +
-  const x5 = [T({ type: "income", amount_cents: 700, account_id: NY, bank_account_id: "savings" }), T({ type: "income", amount_cents: 300, account_id: NY })];
-  assert.deepEqual(L.allowanceShares(a0, x5), { everyday: { [NY]: 300 }, savings: { [NY]: 700 } });
-  // 용돈→용돈, 용돈→생활비/저축: 은행 잔액이 변하지 않음 (몫이 마이너스일 수 있음)
-  const x6 = [...x3,
-    T({ type: "transfer", amount_cents: 1000, account_id: DH, transfer_account_id: NY, bank_account_id: "savings", created_at: "4" }),
-    T({ type: "transfer", amount_cents: 2000, account_id: DH, transfer_account_id: "everyday", created_at: "5" }),
-    T({ type: "transfer", amount_cents: 500, account_id: NY, transfer_account_id: "savings", created_at: "6" })];
-  // 규칙: 각 용돈 통장 몫 합 == 그 통장 앱 잔액, 생활비+저축 은행 잔액 합 == 4개 앱 잔액 합
-  const allTxns = [...x6, ...x5];
-  for (const d of [undefined, "2026-11-01"]) {
-    const sh = L.allowanceShares(a0, allTxns, d);
-    for (const id of [DH, NY]) {
-      assert.equal((sh.everyday[id] || 0) + (sh.savings[id] || 0), L.balanceOn(a0.find((x) => x.id === id), allTxns, d));
-    }
-    assert.equal(bank("everyday", a0, allTxns, d) + bank("savings", a0, allTxns, d), appSum(a0, allTxns, d));
-  }
-  // 용돈→용돈/생활비/저축 이체는 은행 통장별 잔액을 안 바꿈
-  const before = [bank("everyday", a0, x3), bank("savings", a0, x3)];
-  const moved = x6.slice(0, 6);
-  assert.deepEqual([bank("everyday", a0, moved), bank("savings", a0, moved)], before);
-  // 내역 순서를 섞어도 같음
-  assert.deepEqual(L.allowanceShares(a0, [...allTxns].reverse()), L.allowanceShares(a0, allTxns));
-  // 날짜 기준: 이후 내역은 빠짐
-  assert.deepEqual(L.allowanceShares(a0, [...x1, T({ type: "transfer", amount_cents: 1, account_id: "savings", transfer_account_id: DH, date: "2026-12-01" })], "2026-11-30"), L.allowanceShares(a0, x1));
-  // 망가진 금액(NaN)은 0
-  assert.deepEqual(L.allowanceShares(a0, [T({ type: "expense", amount_cents: NaN, account_id: DH })]), { everyday: { [DH]: 0 }, savings: {} });
-  // 용돈 통장 기준값은 생활비 몫
-  const a1 = accs(); a1[2].base_cents = 400;
-  assert.deepEqual(L.allowanceShares(a1, []).everyday, { [DH]: 400 });
-  // 설정 '현재 잔액'(은행 잔액)을 맞추면 bankBalance가 입력값
-  for (const id of ["everyday", "savings"]) {
-    const a2 = accs();
-    a2.find((x) => x.id === id).base_cents = L.baseFor(id, 12345, allTxns, a2);
-    assert.equal(bank(id, a2, allTxns), 12345);
-  }
-  // (a) 용돈→생활비/저축 이체 뒤 몫 값 자체 (x6): 받는 통장에서 몫을 뺌
-  assert.deepEqual(L.allowanceShares(a0, x6), { everyday: { [DH]: 8000 }, savings: { [DH]: 1000, [NY]: 500 } });
-  // 몫이 마이너스가 되어도 그대로 둠
-  const xNeg = [...x1, T({ type: "transfer", amount_cents: 15000, account_id: DH, transfer_account_id: "savings", created_at: "2" })];
-  assert.deepEqual(L.allowanceShares(a0, xNeg), { everyday: { [DH]: 10000 }, savings: { [DH]: -15000 } });
-  // (b) 실제 통장→용돈 이체에 낡은 bank_account_id가 붙어 있어도 무시 (보내는 통장 몫으로 들어감)
-  const stale = [T({ type: "transfer", amount_cents: 10000, account_id: "everyday", transfer_account_id: DH, bank_account_id: "savings" })];
-  assert.deepEqual(L.allowanceShares(a0, stale), { everyday: { [DH]: 10000 }, savings: {} });
-  // 새 내역의 은행 통장 기본값: 몫이 큰 쪽 / 몫 없음·동률·음수는 생활비
-  const toDH = (from, n) => T({ type: "transfer", amount_cents: n, account_id: from, transfer_account_id: DH });
-  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 3000), toDH("savings", 5000)]), "savings");
-  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 5000), toDH("savings", 3000)]), "everyday");
-  assert.equal(L.defaultBankFor(DH, a0, []), "everyday");
-  assert.equal(L.defaultBankFor(DH, a0, [toDH("everyday", 3000), toDH("savings", 3000)]), "everyday");
-  assert.equal(L.defaultBankFor(DH, a0, xNeg), "everyday");
-  // (c) 용돈 통장 기준값이 0이 아니어도 왕복: 입력한 은행 잔액 == bankBalance
-  for (const id of ["everyday", "savings"]) {
-    const a3 = accs(); a3[2].base_cents = 400; a3[3].base_cents = -150;
-    a3.find((x) => x.id === id).base_cents = L.baseFor(id, 12345, allTxns, a3);
-    assert.equal(bank(id, a3, allTxns), 12345);
-  }
-  // (d) 용돈 통장과 은행 잔액을 같은 저장에서 같이 바꿔도 저장 뒤 은행 잔액이 입력값과 같음
-  {
-    const a4 = accs(); a4[2].base_cents = 400;
-    const want = [["everyday", 20000], ["savings", 7000], [DH, 900]]; // 은행 잔액 둘 + 용돈(앱 잔액)
-    const bases = L.basesFor(want, allTxns, a4);
-    const a5 = a4.map((x) => (x.id in bases ? { ...x, base_cents: bases[x.id] } : x));
-    assert.equal(bank("everyday", a5, allTxns), 20000);
-    assert.equal(bank("savings", a5, allTxns), 7000);
-    assert.equal(L.balanceOn(a5[2], allTxns), 900);
-    // 예전 방식(하나씩 따로 계산)은 어긋남 — 이 검사가 실제로 잡는지 확인
-    const old = a4.map((x) => (x.id in bases ? { ...x, base_cents: L.baseFor(x.id, Object.fromEntries(want)[x.id], allTxns, a4) } : x));
-    assert.notEqual(bank("everyday", old, allTxns), 20000);
-  }
-  // accounts를 안 주면 예전 방식 그대로
-  assert.equal(L.baseFor("everyday", 5000, x2), 5000 + 10000);
+  const bases = L.basesFor([["everyday", 5000], ["savings", 100]], txns);
+  assert.deepEqual(bases, { everyday: 500, savings: 100 - 3000 });
 }
 
 // 합계에는 이체가 안 들어감
@@ -152,7 +61,9 @@ for (const [spent, level] of [[79, "ok"], [80, "warn"], [99, "warn"], [100, "ove
 }
 assert.equal(L.budgetStatus(150, 100).pct, 150);
 assert.equal(L.budgetStatus(5, null), null);
-assert.equal(L.budgetStatus(5, 0), null);
+// 쓸 수 있는 돈이 0 이하(이월이 마이너스)면 null이 아니라 바로 over
+assert.deepEqual(L.budgetStatus(0, 0), { pct: 100, level: "over" });
+assert.deepEqual(L.budgetStatus(5, -300), { pct: 100, level: "over" });
 const cats = [
   { type: "expense", name: "식비", budget_cents: 10000 },
   { type: "expense", name: "교통", budget_cents: 5000 }, // 지출 0이어도 나옴
@@ -160,14 +71,63 @@ const cats = [
   { type: "income", name: "급여", budget_cents: 9000 }, // 수입 → 제외
 ];
 const month = [
-  { type: "expense", category: "식비", amount_cents: 8000 },
-  { type: "income", category: "식비", amount_cents: 99999 },
-  { type: "transfer", category: "식비", amount_cents: 99999 },
+  { type: "expense", category: "식비", amount_cents: 8000, date: "2026-11-05" },
+  { type: "expense", category: "식비", amount_cents: 99999, date: "2026-10-05" }, // 다른 달 → 제외
+  { type: "income", category: "식비", amount_cents: 99999, date: "2026-11-05" },
+  { type: "transfer", category: "식비", amount_cents: 99999, date: "2026-11-05" },
 ];
-assert.deepEqual(L.budgetRows(cats, month), [
-  { name: "식비", spent: 8000, budget: 10000, pct: 80, level: "warn" },
-  { name: "교통", spent: 0, budget: 5000, pct: 0, level: "ok" },
+assert.deepEqual(L.budgetRows(cats, month, "2026-11"), [
+  { name: "식비", spent: 8000, budget: 10000, carry: 0, available: 10000, pct: 80, level: "warn" },
+  { name: "교통", spent: 0, budget: 5000, carry: 0, available: 5000, pct: 0, level: "ok" },
 ]);
+
+// 이월: carryFor(분류, 내역, 달)
+{
+  const X = (cents, date, o = {}) => ({ type: "expense", category: "동현 용돈", amount_cents: cents, date, ...o });
+  const cat = (o = {}) => ({ type: "expense", name: "동현 용돈", budget_cents: 10000, carry_since: "2026-09", carry_base_cents: 0, ...o });
+  // 시작 달 자체는 시작 금액만
+  assert.equal(L.carryFor(cat(), [], "2026-09"), 0);
+  assert.equal(L.carryFor(cat({ carry_base_cents: 700 }), [X(5000, "2026-09-03")], "2026-09"), 700);
+  // 내역 없는 달도 예산을 더함: 9·10·11월 → 11월로 넘어오는 돈 = 2달치
+  assert.equal(L.carryFor(cat(), [], "2026-11"), 20000);
+  // 일부만 쓰면 남은 만큼 이월
+  assert.equal(L.carryFor(cat(), [X(4000, "2026-09-30")], "2026-10"), 6000);
+  // 초과 지출은 마이너스 이월 (연도가 바뀌어도 달 단위로 이어짐)
+  assert.equal(L.carryFor(cat(), [X(15000, "2026-09-10")], "2026-10"), -5000);
+  assert.equal(L.carryFor(cat({ carry_since: "2026-11" }), [X(15000, "2026-11-10")], "2027-01"), 5000);
+  // 시작 금액이 더해짐
+  assert.equal(L.carryFor(cat({ carry_base_cents: -300 }), [X(1000, "2026-09-01")], "2026-10"), -300 + 9000);
+  // 시작 달 이전을 볼 때, 시작 달이 비었을 때(이월 안 함)는 0
+  assert.equal(L.carryFor(cat({ carry_base_cents: 700 }), [], "2026-08"), 0);
+  assert.equal(L.carryFor(cat({ carry_since: null, carry_base_cents: 700 }), [X(1, "2026-09-01")], "2026-11"), 0);
+  assert.equal(L.carryFor(cat({ carry_since: undefined }), [], "2026-11"), 0);
+  // 다른 분류·수입·이체는 무시, 시작 달 이전 지출도 무시
+  const noise = [
+    X(9999, "2026-09-05", { category: "식비" }), X(9999, "2026-09-05", { type: "income" }),
+    X(9999, "2026-09-05", { type: "transfer" }), X(9999, "2026-08-31"),
+  ];
+  assert.equal(L.carryFor(cat(), noise, "2026-10"), 10000);
+  // 망가진 금액(NaN)은 0
+  assert.equal(L.carryFor(cat(), [X(NaN, "2026-09-05"), X(2000, "2026-09-06")], "2026-10"), 8000);
+  // 기준 다시 잡기: 11월에 예산을 바꾸면 '11월 이월액'이 시작 금액이 되고, 12월 이월은 이어서 같은 값
+  const t2 = [X(3000, "2026-09-05"), X(12000, "2026-10-05"), X(500, "2026-11-05")];
+  const before = cat();
+  const nov = L.carryFor(before, t2, "2026-11"); // 10000-3000 + 10000-12000 = 5000
+  assert.equal(nov, 5000);
+  const after = cat({ budget_cents: 20000, carry_since: "2026-11", carry_base_cents: nov });
+  assert.equal(L.carryFor(after, t2, "2026-11"), 5000); // 이번 달 이월은 그대로
+  assert.equal(L.carryFor(after, t2, "2026-12"), 5000 + 20000 - 500); // 새 예산은 이번 달부터
+  assert.equal(L.carryFor(after, t2, "2026-10"), 0); // 시작 달 이전
+  // budgetRows: 이월이 available에 들어가고, 이월 때문에 쓸 수 있는 돈이 0 이하면 over
+  const row = (c, ts, ym) => L.budgetRows([c], ts, ym)[0];
+  assert.deepEqual(row(cat(), [X(4000, "2026-09-30"), X(1000, "2026-10-02")], "2026-10"),
+    { name: "동현 용돈", spent: 1000, budget: 10000, carry: 6000, available: 16000, pct: 6, level: "ok" });
+  const broke = row(cat(), [X(30000, "2026-09-10")], "2026-10"); // 이월 -20000 → 쓸 수 있는 돈 -10000
+  assert.equal(broke.available, -10000);
+  assert.equal(broke.level, "over");
+  // 이월을 안 쓰는 분류는 예전과 같음 (carry 0)
+  assert.equal(row({ type: "expense", name: "식비", budget_cents: 100 }, [], "2026-11").available, 100);
+}
 
 // 자동완성: 같은 종류의 가장 최근 것, 다른 종류는 무시, 없으면 null, 목록은 중복 없이 최근 순
 const past = [
@@ -193,7 +153,7 @@ assert.equal(L.sumCents([{ amount_cents: 300 }, { amount_cents: NaN }, { amount_
 // 망가진 금액(NaN/문자열/null)이 섞여도 합계·예산·잔액에 NaN이 안 나옴
 const bad = [{ type: "expense", category: "식비", amount_cents: NaN, date: "2026-11-01" }, { type: "expense", category: "식비", amount_cents: null, date: "2026-11-01" }, { type: "expense", category: "식비", amount_cents: 700, date: "2026-11-01" }];
 assert.deepEqual(L.totals(bad), { income: 0, expense: 700 });
-assert.equal(L.budgetRows([{ type: "expense", name: "식비", budget_cents: 1000 }], bad)[0].spent, 700);
+assert.equal(L.budgetRows([{ type: "expense", name: "식비", budget_cents: 1000 }], bad, "2026-11")[0].spent, 700);
 assert.equal(L.balanceOn(everyday, bad), (everyday.base_cents || 0) - 700);
 // 망가진 금액은 "NaN €" 대신 "-", 정상 금액 글자는 그대로
 assert.deepEqual([NaN, "abc", null, undefined].map(L.formatCents), ["-", "-", "-", "-"]);

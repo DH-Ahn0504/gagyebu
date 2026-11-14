@@ -399,6 +399,8 @@ input::placeholder { color: var(--faint); }
 #budget-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 14px; }
 .budget-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: var(--fs-body); line-height: 22px; }
 .budget-line > span:first-child { min-width: 0; overflow-wrap: anywhere; }   /* 긴 분류 이름이 금액을 밀어내지 않게 */
+.budget-line > span:first-child { word-break: keep-all; }   /* 이름은 띄어쓰기에서만 줄바꿈 (넘치면 위 anywhere가 마지막 수단) */
+.budget-carry { display: block; color: var(--muted); font-size: var(--fs-small); line-height: 18px; white-space: nowrap; }   /* 이월은 이름 아래 보조 줄 */
 .budget-line .num { flex: none; color: var(--muted); font-size: var(--fs-small); }
 .budget-track { height: 8px; margin-top: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
 .budget-fill { height: 100%; border-radius: inherit; animation: budget-grow 400ms var(--ease-out); }   /* 통째로 다시 그려도 보이게 transition 대신 animation */
@@ -477,6 +479,12 @@ dialog h2 { margin-bottom: 14px; }
   /* 지출·수입 금액(예: 1.234,56 €)이 좁은 칸에서 넘치지 않게: 사진 위에서 한 줄 전체 너비를 씀 */
   .sum-figures { grid-column: 1 / -1; order: -1; }
   .sum-cats { grid-column: auto; }
+  /* 예산 칸만 사진 아래 전체 너비로: sum-cats 상자를 풀어서 안쪽 3조각을 격자에 직접 놓음 */
+  .sum-cats { display: contents; }
+  .summary:not(.no-photo) .photo-frame { grid-row: span 2; }
+  .summary:not(.no-photo) .sum-cats > .label, .summary:not(.no-photo) #cat-bars { grid-column: 2; }
+  .sum-cats > .label { margin-bottom: -4px; }   /* 격자 줄 간격 16px이 더해지므로 제목 아래 총 12px 유지 */
+  #budget-bars { grid-column: 1 / -1; }
   .summary.no-photo { grid-template-columns: minmax(0, 1fr); }
   .figure { font-size: 20px; line-height: 26px; }
   .lane-grid { grid-template-columns: 1fr; }

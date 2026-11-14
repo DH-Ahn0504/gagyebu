@@ -34,8 +34,8 @@
       change((d) => { if (!d.categories.some((c) => c.type === type && c.name === name)) d.categories.push({ type, name }); });
     },
     async deleteCategory(type, name) { change((d) => { d.categories = d.categories.filter((c) => !(c.type === type && c.name === name)); }); },
-    async setBudget(type, name, cents) {
-      change((d) => { const c = d.categories.find((x) => x.type === type && x.name === name); if (c) c.budget_cents = cents; });
+    async setBudget(type, name, cents, carry) {
+      change((d) => { const c = d.categories.find((x) => x.type === type && x.name === name); if (c) Object.assign(c, { budget_cents: cents }, carry); });
     },
     async addBill(b) { change((d) => d.bills.push({ ...b, id: newId(), active: true, last_processed_month: "" })); },
     async deleteBill(id) { change((d) => { d.bills = d.bills.filter((b) => b.id !== id); }); },

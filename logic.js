@@ -5,13 +5,12 @@
   const ACCOUNTS = [
     { id: "everyday", name: "생활비 통장" },
     { id: "savings", name: "저축 통장" },
-    { id: "donghyun_allowance", name: "동현이 용돈 통장" },
-    { id: "nayoon_allowance", name: "나윤이 용돈 통장" },
   ];
   const DEFAULT_CATEGORIES = {
     income: ["급여", "용돈", "이자", "기타 수입"],
-    expense: ["식비", "교통", "공과금", "쇼핑", "의료", "구독", "기타 지출"],
+    expense: ["식비", "교통", "공과금", "쇼핑", "의료", "구독", "기타 지출", "동현 용돈", "나윤 용돈"],
   };
+  const CARRY_CATEGORIES = ["동현 용돈", "나윤 용돈"]; // 월 예산을 다음 달로 이월하는 지출 분류
   const RECURRING_CATEGORY = "공과금";
   const TYPE_LABEL = { income: "수입", expense: "지출", transfer: "이체" };
 
@@ -53,66 +52,11 @@
     return b;
   }
 
-  // 은행에 실제로 있는 통장. 용돈 통장은 가상이라 돈이 이 둘 안에 들어 있음
-  const REAL_ACCOUNTS = ["everyday", "savings"];
+  // 화면에 입력한 '현재 잔액'이 되도록 하는 기준값
+  const baseFor = (accountId, wantedCents, txns) => wantedCents - txns.reduce((s, t) => s + delta(t, accountId), 0);
 
-  // 용돈 통장 잔액이 실제로는 어느 은행 통장에 들어 있는지: { everyday: {용돈id: 센트}, savings: {...} }
-  // 내역마다 더하기만 하므로 순서와 상관없음. 몫이 마이너스여도 그대로 둠
-  // shortcut: 용돈→생활비/저축 이체는 은행에서 안 움직인다고 보고, 몫을 '받는 통장'에서 뺌(bank_account_id는 무시).
-  //   그래서 은행에서 진짜 돈을 뺀 것(용돈을 현금으로 찾기)은 이 이체로 표현 못 하고, 몫이 마이너스가 될 수 있음. 필요해지면 '출금' 종류를 따로 만들기
-  function allowanceShares(accounts, txns, uptoDate) {
-    const shares = { everyday: {}, savings: {} };
-    const add = (r, id, v) => { shares[r][id] = (shares[r][id] || 0) + v; };
-    for (const a of accounts) if (!REAL_ACCOUNTS.includes(a.id) && a.base_cents) add("everyday", a.id, a.base_cents);
-    for (const t of txns) {
-      if (uptoDate && t.date > uptoDate) continue;
-      const n = Number.isFinite(t.amount_cents) ? t.amount_cents : 0;
-      const from = t.account_id || "everyday", to = t.transfer_account_id;
-      const bank = REAL_ACCOUNTS.includes(t.bank_account_id) ? t.bank_account_id : "everyday";
-      const fromReal = REAL_ACCOUNTS.includes(from), toReal = REAL_ACCOUNTS.includes(to);
-      if (t.type === "income" && !fromReal) add(bank, from, n);
-      else if (t.type === "expense" && !fromReal) add(bank, from, -n);
-      else if (t.type === "transfer") {
-        const where = toReal ? to : bank; // 용돈이 나가는 쪽의 몫 위치
-        if (!fromReal) add(where, from, -n);
-        if (to && !toReal) add(fromReal ? from : where, to, n);
-      }
-    }
-    return shares;
-  }
-
-  // 은행 앱에서 보이는 잔액 = 앱 잔액 + 그 은행 통장 안에 있는 용돈 몫
-  function bankBalance(realId, accounts, txns, uptoDate) {
-    const account = accounts.find((a) => a.id === realId);
-    if (!account) return null; // 통장 줄이 없으면 화면에 '-'로 보임
-    const mine = allowanceShares(accounts, txns, uptoDate)[realId] || {};
-    return balanceOn(account, txns, uptoDate) + Object.values(mine).reduce((s, v) => s + v, 0);
-  }
-
-  // 새 내역의 '실제 은행 통장' 기본값: 그 용돈 통장 몫이 양수로 더 큰 쪽. 동률·0 이하·용돈 통장 아님이면 생활비
-  const defaultBankFor = (accountId, accounts, txns) => {
-    const s = allowanceShares(accounts, txns), sv = s.savings[accountId] || 0;
-    return sv > 0 && sv > (s.everyday[accountId] || 0) ? "savings" : "everyday";
-  };
-
-  // 화면에 입력한 '현재 잔액'이 되도록 하는 기준값.
-  // accounts를 주면 생활비/저축은 입력값을 '은행 잔액'으로 보고 용돈 몫을 뺌
-  const baseFor = (accountId, wantedCents, txns, accounts) => {
-    const mine = accounts && REAL_ACCOUNTS.includes(accountId) ? allowanceShares(accounts, txns)[accountId] : {};
-    return wantedCents - txns.reduce((s, t) => s + delta(t, accountId), 0) - Object.values(mine).reduce((s, v) => s + v, 0);
-  };
-
-  // 설정에서 여러 통장을 한꺼번에 바꿀 때: 용돈 통장 기준값을 먼저 구해 반영한 뒤 생활비/저축을 계산
-  // (용돈 몫이 같이 바뀌므로 순서가 중요). changed: [[통장id, 센트]] → { id: 기준값 }
-  function basesFor(changed, txns, accounts) {
-    const accs = accounts.map((a) => ({ ...a })), bases = {};
-    const isReal = ([id]) => REAL_ACCOUNTS.includes(id);
-    for (const [id, cents] of [...changed.filter((c) => !isReal(c)), ...changed.filter(isReal)]) {
-      bases[id] = baseFor(id, cents, txns, accs);
-      accs.find((a) => a.id === id).base_cents = bases[id];
-    }
-    return bases;
-  }
+  // 설정에서 여러 통장을 한꺼번에 바꿀 때. changed: [[통장id, 센트]] → { id: 기준값 }
+  const basesFor = (changed, txns) => Object.fromEntries(changed.map(([id, cents]) => [id, baseFor(id, cents, txns)]));
 
   const pad = (n) => String(n).padStart(2, "0");
   const toDateStr = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -207,20 +151,37 @@
     return out;
   }
 
-  // 예산 대비 지출: pct는 내림(79.9%가 80으로 보이지 않게). 예산이 없으면 null
+  // 예산 대비 지출: pct는 내림(79.9%가 80으로 보이지 않게). 예산이 없으면 null, 쓸 수 있는 돈이 0 이하면 바로 over
   function budgetStatus(spentCents, budgetCents) {
-    if (!(budgetCents > 0)) return null;
+    if (!Number.isFinite(budgetCents)) return null;
+    if (budgetCents <= 0) return { pct: 100, level: "over" };
     const pct = Math.floor((spentCents * 100) / budgetCents);
     return { pct, level: pct >= 100 ? "over" : pct >= 80 ? "warn" : "ok" };
   }
 
-  // 예산이 있는 지출 분류의 이번 달 진행 상황 (지출 0도 포함)
-  function budgetRows(categories, monthTxns) {
+  // ym달로 넘어오는 이월액 = 시작 금액 + (carry_since 달 ~ 전달까지 매달 '예산 − 그 분류 지출').
+  // 내역 없는 달도 예산은 더함. carry_since가 없거나 ym이 그보다 이르면 0 (이월 안 함). 이체·수입은 안 셈.
+  // shortcut: 매번 처음부터 달마다 더함 → 몇 년 치까지는 충분. 느려지면 달별 합계를 저장
+  function carryFor(category, txns, ym) {
+    const since = category.carry_since;
+    if (!since || ym < since) return 0;
+    const spent = {};
+    for (const t of txns) {
+      if (t.type === "expense" && t.category === category.name) spent[t.date.slice(0, 7)] = (spent[t.date.slice(0, 7)] || 0) + sumCents([t]);
+    }
+    let carry = category.carry_base_cents || 0;
+    for (let m = since; m < ym; m = addMonths(m, 1)) carry += (category.budget_cents || 0) - (spent[m] || 0);
+    return carry;
+  }
+
+  // 예산이 있는 지출 분류의 ym달 진행 상황 (지출 0도 포함). available = 예산 + 이월
+  function budgetRows(categories, txns, ym) {
     return categories
       .filter((c) => c.type === "expense" && c.budget_cents > 0)
       .map((c) => {
-        const spent = sumCents(monthTxns.filter((t) => t.type === "expense" && t.category === c.name));
-        return { name: c.name, spent, budget: c.budget_cents, ...budgetStatus(spent, c.budget_cents) };
+        const spent = sumCents(txns.filter((t) => t.type === "expense" && t.category === c.name && t.date.slice(0, 7) === ym));
+        const carry = carryFor(c, txns, ym), available = c.budget_cents + carry;
+        return { name: c.name, spent, budget: c.budget_cents, carry, available, ...budgetStatus(spent, available) };
       });
   }
 
@@ -245,7 +206,7 @@
 
   const api = {
     ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, TYPE_LABEL,
-    REAL_ACCOUNTS, allowanceShares, bankBalance, defaultBankFor,
+    CARRY_CATEGORIES, carryFor,
     formatCents, parseAmount, delta, balanceOn, baseFor, basesFor, toDateStr, addMonths, addDays,
     dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
     budgetStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,

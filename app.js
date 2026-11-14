@@ -18,11 +18,11 @@
     acct: { id: "everyday", mode: "month", anchor: today() },
   };
 
-  // 세 사람 줄: 동현 · 함께 · 나윤 (통장으로 나눔)
+  // 세 사람 줄: 동현 · 함께 · 나윤. 동현·나윤은 통장 대신 용돈 분류(월 예산 + 이월)를 보여 줌
   const LANES = [
-    { key: "dh", name: "동현", initial: "동", accounts: ["donghyun_allowance"] },
+    { key: "dh", name: "동현", initial: "동", accounts: [], category: "동현 용돈" },
     { key: "us", name: "함께", initial: "함", accounts: ["everyday", "savings"] },
-    { key: "ny", name: "나윤", initial: "나", accounts: ["nayoon_allowance"] },
+    { key: "ny", name: "나윤", initial: "나", accounts: [], category: "나윤 용돈" },
   ];
   const personClass = (name) => (name === "동현" ? "dh" : name === "나윤" ? "ny" : "");
   const personInitial = (name) => (name === "동현" ? "동" : name === "나윤" ? "나" : name === "정기 지출" ? "자" : "?");
@@ -70,7 +70,6 @@
       <label>내용 <input name="description" maxlength="60" list="desc-list" value="${esc(t.description)}" required><datalist id="desc-list">${L.recentDescriptions(data.txns, type).map((d) => `<option value="${esc(d)}"></option>`).join("")}</datalist></label>
       <label>날짜 <input name="date" type="date" value="${esc(t.date || today())}" required></label>
       <label>${type === "transfer" ? "보내는 통장" : "통장"} <select name="account_id">${accountOptions(t.account_id || "everyday")}</select></label>
-      <label data-bank hidden>실제 은행 통장 (생활비/저축) <select name="bank_account_id">${L.REAL_ACCOUNTS.map((id) => `<option value="${id}" ${id === (t.bank_account_id || "everyday") ? "selected" : ""}>${esc(accountName(id))}</option>`).join("")}</select></label>
       ${type === "transfer"
         ? `<label>받는 통장 <select name="transfer_account_id">${accountOptions(t.transfer_account_id || "savings")}</select></label>`
         : `<label>분류 <select name="category">${cats.map((c) => `<option value="${esc(c)}" ${c === t.category ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></label>`}
@@ -88,7 +87,7 @@
         const orig = t.orig || t;
         const same = b.dataset.type === type;
         fillTxnForm(form, { ...f, id: t.id, orig, type: b.dataset.type, touched: !!form.account_id.dataset.touched,
-          catTouched: same && !!form.category?.dataset.touched, bankTouched: !!form.bank_account_id.dataset.touched,
+          catTouched: same && !!form.category?.dataset.touched,
           category: same ? f.category : t.id && b.dataset.type === orig.type ? orig.category : "" });
       }));
     form.querySelector("[data-cancel]").onclick = () => $("edit-dialog").close();
@@ -105,17 +104,6 @@
     if (t.touched ?? t.account_id) form.account_id.dataset.touched = "1";
     if (t.catTouched && form.category) form.category.dataset.touched = "1";
     for (const name of ["category", "account_id"]) form[name]?.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
-    // 은행 통장 칸은 용돈 통장이 돈이 나가는/들어오는 쪽으로만 낄 때 보임 (생활비·저축↔용돈 이체, 용돈→생활비·저축 이체는 숨김)
-    // 새 내역이고 사용자가 은행 통장 칸을 안 건드렸으면, 그 용돈 통장 몫이 큰 은행 통장을 기본으로 고름 (수정 화면은 저장된 값 그대로)
-    if (t.id || t.bankTouched) form.bank_account_id.dataset.touched = "1";
-    form.bank_account_id.addEventListener("change", (e) => { e.target.dataset.touched = "1"; });
-    const syncBank = () => {
-      const real = (id) => L.REAL_ACCOUNTS.includes(id);
-      form.querySelector("[data-bank]").hidden = real(form.account_id.value) || (type === "transfer" && real(form.transfer_account_id.value));
-      if (!form.bank_account_id.dataset.touched) form.bank_account_id.value = L.defaultBankFor(form.account_id.value, data.accounts, data.txns);
-    };
-    for (const name of ["account_id", "transfer_account_id"]) form[name]?.addEventListener("change", syncBank);
-    syncBank();
     const del = form.querySelector("[data-delete]");
     if (del) del.onclick = () => {
       const o = t.orig || t; // 종류 버튼을 눌러도 처음 열었던 내역을 보여줌
@@ -135,7 +123,6 @@
       account_id: f.get("account_id"),
       transfer_account_id: form.dataset.type === "transfer" ? f.get("transfer_account_id") : "",
       category: form.dataset.type === "transfer" ? "" : f.get("category") || "",
-      bank_account_id: form.querySelector("[data-bank]").hidden ? null : f.get("bank_account_id"), // 용돈과 무관하면 null
     };
   }
 
@@ -146,7 +133,6 @@
     const ids = data.accounts.map((a) => a.id);
     if (!ids.includes(t.account_id) || (t.type === "transfer" && !ids.includes(t.transfer_account_id))) return "통장을 다시 선택해 주세요.";
     if (t.type === "transfer" && t.transfer_account_id === t.account_id) return "보내는 통장과 다른 받는 통장을 선택해 주세요.";
-    if (t.bank_account_id !== null && !L.REAL_ACCOUNTS.includes(t.bank_account_id)) return "은행 통장을 다시 선택해 주세요.";
     if (t.type !== "transfer" && !t.category) return "분류를 선택해 주세요.";
     // 그 종류의 분류여야 함. 단, 수정 중인 옛 내역의 (지워진) 분류는 그대로 저장 가능
     if (t.type !== "transfer" && !catNames(t.type).includes(t.category) && !(orig && orig.type === t.type && orig.category === t.category)) return "분류를 다시 선택해 주세요.";
@@ -225,11 +211,9 @@
   }
 
   // 이번 달 화면 통장 줄 아래: 월말 예상 잔액 (음수면 빨간 글자)
-  // extra: 생활비/저축 줄은 큰 숫자가 은행 잔액이라 현재 용돈 몫 합을 더해 은행 기준으로 맞춤
-  function projected(id, due, extra = 0) {
-    let cents = L.projectedBalance(data.accounts.find((a) => a.id === id), data.txns, due);
+  function projected(id, due) {
+    const cents = L.projectedBalance(data.accounts.find((a) => a.id === id), data.txns, due);
     if (cents === null) return "";
-    cents += extra;
     return `<p class="meta num${cents < 0 ? " neg" : ""}">월말 예상 ${esc(fmt(cents))}</p>`;
   }
 
@@ -253,44 +237,37 @@
     else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
 
     // 분류별 예산 진행 막대 (예산이 하나도 없으면 숨김)
-    const budgets = L.budgetRows(data.categories, monthTxns);
+    const budgets = L.budgetRows(data.categories, data.txns, ym);
     $("budget-bars").hidden = !budgets.length;
     $("budget-list").innerHTML = budgets.map((b) => `<li>
-      <div class="budget-line"><span>${esc(b.name)}</span><span class="num">${esc(fmt(b.spent))} / ${esc(fmt(b.budget))}</span></div>
+      <div class="budget-line"><span>${esc(b.name)}${b.carry ? `<small class="budget-carry">이월 ${esc(fmt(b.carry))}</small>` : ""}</span><span class="num">${esc(fmt(b.spent))} / ${esc(fmt(b.available))}</span></div>
       <div class="budget-track" role="progressbar" aria-label="${esc(b.name)} 예산 사용" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(b.pct, 100)}"><div class="budget-fill budget-${b.level}" style="width:${Math.min(b.pct, 100)}%"></div></div>
-      ${b.level === "over" ? `<p class="budget-over">초과 ${esc(fmt(b.spent - b.budget))}</p>` : ""}
+      ${b.level === "over" ? `<p class="budget-over">초과 ${esc(fmt(b.spent - b.available))}</p>` : ""}
     </li>`).join("");
 
     const due = isNow ? billsLeft(ym) : [];
 
     // 동현 · 함께 · 나윤
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
-    const shares = L.allowanceShares(data.accounts, data.txns); // 용돈 몫: { everyday: {용돈id: 센트}, savings: {...} }. 0인 몫은 숨기고 마이너스는 그대로 보임
-    const nonZero = (obj) => Object.entries(obj || {}).filter(([, v]) => v);
-    // 통장 줄 아래 작은 글씨 한 줄 (기존 .meta 오른쪽 정렬 스타일 재사용)
-    const note = (text) => `<p class="meta num">${text}</p>`;
-    const acctLine = (id) => {
-      const real = L.REAL_ACCOUNTS.includes(id);
-      const mine = real ? nonZero(shares[id]) : [];
-      const shown = real ? L.bankBalance(id, data.accounts, data.txns) : bal[id]; // 생활비·저축은 은행 잔액, 용돈은 앱 잔액
-      let sub = "";
-      const piece = (text) => `<span class="nw">${text}</span>`; // 조각 단위로만 줄바꿈 (이름·금액 중간에서 안 끊김)
-      if (mine.length) sub = note(`${piece("그중")} ${mine.map(([aid, v]) => piece(`${esc(accountName(aid))} ${esc(fmt(v))}`)).join(" · ")} · ${piece(`순수 ${esc(fmt(bal[id]))}`)}`);
-      else if (!real) {
-        const where = L.REAL_ACCOUNTS.map((r) => [r, (shares[r] || {})[id]]).filter(([, v]) => v);
-        if (where.length) sub = note(`(${where.map(([r, v]) => piece(`${esc(accountName(r))} ${esc(fmt(v))}`)).join(" · ")}에 있음)`);
-      }
-      return `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(shown)}</span></button>${sub}${isNow ? projected(id, due, real ? Object.values(shares[id] || {}).reduce((s, v) => s + v, 0) : 0) : ""}`;
+    const acctLine = (id) =>
+      `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>${isNow ? projected(id, due) : ""}`;
+    // 용돈 줄: 이번 달 쓸 수 있는 돈(예산+이월)과 남은 돈. 예산이 없으면 안내만
+    const allowLine = (name) => {
+      const r = budgets.find((b) => b.name === name);
+      const piece = (text) => `<span class="nw">${text}</span>`;
+      return `<p class="meta num">${r
+        ? `${piece(`쓸 수 있는 용돈 ${esc(fmt(r.available))}`)} ${piece(`(예산 ${esc(fmt(r.budget))} + 이월 ${esc(fmt(r.carry))})`)} · ${piece(`남은 돈 ${esc(fmt(r.available - r.spent))}`)}`
+        : "설정에서 월 예산을 정해 주세요"}</p>`;
     };
     $("lanes").innerHTML = LANES.map((lane) => {
-      const spent = monthTxns.filter((t) => t.type === "expense" && lane.accounts.includes(t.account_id || "everyday")).reduce((s, t) => s + L.sumCents([t]), 0);
+      const spent = monthTxns.filter((t) => t.type === "expense" && (lane.category ? t.category === lane.category : !L.CARRY_CATEGORIES.includes(t.category) && lane.accounts.includes(t.account_id || "everyday"))).reduce((s, t) => s + L.sumCents([t]), 0);
       return `<div class="lane">
         <div class="lane-head"><span class="avatar ${lane.key === "us" ? "" : lane.key}" aria-hidden="true">${lane.initial}</span>${lane.name}</div>
         <div class="lane-spent"><span class="label">${Number(ym.slice(5))}월 지출</span><span class="figure num">${amtHtml(spent)}</span></div>
-        <div class="lane-accts">${lane.accounts.map(acctLine).join("")}</div>
+        <div class="lane-accts">${lane.category ? allowLine(lane.category) : lane.accounts.map(acctLine).join("")}</div>
       </div>`;
     }).join("");
-    $("lanes-meta").innerHTML = `전체 합계 (용돈 중복 없이) <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
+    $("lanes-meta").innerHTML = `전체 합계 <span class="num">${esc(fmt(Object.values(bal).reduce((s, v) => s + v, 0)))}</span>`;
 
     txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`, true);
 
@@ -357,8 +334,7 @@
     $("a-tabs").innerHTML = data.accounts.map((x) => `<button data-account="${esc(x.id)}" aria-pressed="${x.id === a.id}">${esc(x.name)}</button>`).join("");
     pressSeg($("a-mode"), "mode", mode);
     $("a-name").textContent = a.name;
-    const lane = LANES.find((l) => l.accounts.includes(a.id));
-    $("a-sub").textContent = lane.name === "함께" ? "두 사람이 함께 쓰는 통장" : `${lane.name}의 용돈 통장`;
+    $("a-sub").textContent = "두 사람이 함께 쓰는 통장";
     $("a-label").textContent = periodLabel(mode, anchor);
 
     const points = L.balanceSeries(a, data.txns, mode, anchor);
@@ -393,11 +369,10 @@
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     if (!$("balance-form").contains(document.activeElement)) {
       $("balance-form").innerHTML = data.accounts.map((a) =>
-        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${((L.REAL_ACCOUNTS.includes(a.id) ? L.bankBalance(a.id, data.accounts, data.txns) : bal[a.id]) / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
-        `<p class="note">생활비·저축 칸은 은행 앱에 보이는 잔액이에요. 용돈 통장 돈이 그 안에 들어 있어요.</p>` +
+        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
         `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
     }
-    $("balance-total").textContent = `전체 합계 (용돈 중복 없이) ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
+    $("balance-total").textContent = `전체 합계 ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
     for (const type of ["expense", "income"]) {
       $(`cat-${type}`).innerHTML = catNames(type).map((name) =>
         `<li><span class="chip-name" title="${esc(name)}">${esc(name)}</span><button data-delcat="${type}|${esc(name)}" aria-label="${esc(name)} 분류 삭제">×</button></li>`).join("");
@@ -497,7 +472,7 @@
     if (!changed.length) return;
     save(form, form.querySelector("button"), async () => {
       const fresh = await S.load();   // 저장 직전의 최신 내역으로 계산
-      await S.setBases(L.basesFor(changed, fresh.txns, fresh.accounts));
+      await S.setBases(L.basesFor(changed, fresh.txns));
     }, "저장하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", () => document.activeElement.blur());
   });
 
@@ -520,7 +495,20 @@
     btn.disabled = true;
     let msg = "";   // refresh()가 폼을 다시 그리므로, 끝난 뒤 새 .error 칸에 넣을 고정 문구
     try {
-      for (const [name, cents] of changes) await S.setBudget("expense", name, cents);
+      const ym = today().slice(0, 7);
+      const fresh = changes.some(([n]) => L.CARRY_CATEGORIES.includes(n)) ? await S.load() : null;   // 저장 직전의 최신 내역으로 이월 계산
+      for (const [name, cents] of changes) {
+        // 이월 분류: 예산을 바꾸면 지난달까지의 이월액을 시작 금액으로 굳히고 이번 달부터 다시 셈. 예산을 지우면 이월도 끝
+        const cat = data.categories.find((c) => c.type === "expense" && c.name === name);
+        if (cents === null && L.CARRY_CATEGORIES.includes(name)) {
+          const lost = L.carryFor(cat, fresh.txns, ym);
+          if (lost !== 0 && !confirm(`'${name}' 이월 ${L.formatCents(lost)}가 사라져요. 계속할까요?`)) continue;   // 취소하면 저장 안 함, refresh()가 입력칸을 원래 값으로 되돌림
+        }
+        const carry = !L.CARRY_CATEGORIES.includes(name) ? undefined
+          : cents === null ? { carry_since: null, carry_base_cents: 0 }
+          : { carry_since: ym, carry_base_cents: cat?.budget_cents > 0 ? L.carryFor(cat, fresh.txns, ym) : 0 };
+        await S.setBudget("expense", name, cents, carry);
+      }
       form.querySelector(".error").textContent = "";
       document.activeElement.blur();
     } catch (err) {
@@ -547,7 +535,8 @@
     if (busy) return;
     if (c) {
       const k = c.dataset.delcat.indexOf("|"), type = c.dataset.delcat.slice(0, k), name = c.dataset.delcat.slice(k + 1);
-      if (confirm(`'${name}' 분류를 삭제할까요? 예전 내역의 분류는 그대로 남습니다.`)) save($("cat-form"), c, () => S.deleteCategory(type, name), "분류를 지우지 못했어요. 다시 시도해 주세요.");
+      if (confirm(`'${name}' 분류를 삭제할까요? 예전 내역의 분류는 그대로 남습니다.`) &&
+        (type !== "expense" || !L.CARRY_CATEGORIES.includes(name) || confirm(`'${name}'은(는) 월 예산과 이월 기록이 붙은 분류예요. 정말 삭제할까요?`))) save($("cat-form"), c, () => S.deleteCategory(type, name), "분류를 지우지 못했어요. 다시 시도해 주세요.");
     }
     if (b && confirm("이 자동 지출을 삭제할까요? 이미 기록된 내역은 남습니다.")) save($("bill-form"), b, () => S.deleteBill(b.dataset.delbill), "자동 지출을 지우지 못했어요. 다시 시도해 주세요.");
   });

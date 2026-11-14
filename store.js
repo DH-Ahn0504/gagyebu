@@ -21,7 +21,6 @@
   const txnRow = (t) => ({
     type: t.type, amount_cents: t.amount_cents, description: t.description, date: t.date,
     account_id: t.account_id, transfer_account_id: t.transfer_account_id || null, category: t.category || "",
-    bank_account_id: t.bank_account_id || null,
   });
 
   root.Store = {
@@ -60,7 +59,7 @@
       check(await sb.from("categories").upsert({ type, name }, { onConflict: "type,name", ignoreDuplicates: true }));
     },
     async deleteCategory(type, name) { check(await sb.from("categories").delete().eq("type", type).eq("name", name)); },
-    async setBudget(type, name, cents) { check(await sb.from("categories").update({ budget_cents: cents }).eq("type", type).eq("name", name)); },
+    async setBudget(type, name, cents, carry) { check(await sb.from("categories").update({ budget_cents: cents, ...carry }).eq("type", type).eq("name", name)); },
     async addBill(b) { check(await sb.from("bills").insert(b)); },
     async deleteBill(id) { check(await sb.from("bills").delete().eq("id", id)); },
     async runRecurring() { /* Supabase가 매일 처리함 (schema.sql 8번) */ },
