@@ -250,4 +250,11 @@ const sbTag = (html.match(/<script[^>]*\ssrc="[^"]*supabase[^"]*"[^>]*>/) || [""
 assert.ok(/\sintegrity="sha384-/.test(sbTag) && /\scrossorigin="anonymous"/.test(sbTag), "supabase script에 integrity/crossorigin이 없음");
 for (const n of ["style-src", "font-src"]) assert.ok(entries(n).every((x) => !/^https:\/\/cdn\.jsdelivr\.net\/?$/.test(x)), n + "에 jsDelivr 전체 허락이 있음 (폴더 접두어로 좁혀야 함)");
 
+// 캐시 꼬리표: 내 파일(외부 http 주소 제외)의 link stylesheet·script src는 모두 같은 ?v=8자리숫자(+소문자 1자)여야 함
+const mine = [...html.matchAll(/<link[^>]*rel="stylesheet"[^>]*\shref="([^"]*)"|<script[^>]*\ssrc="([^"]*)"/g)].map((m) => m[1] || m[2]).filter((u) => !/^https?:/.test(u));
+assert.ok(mine.length >= 8, "내 파일 link/script가 8개보다 적게 잡힘 (" + mine.length + "개)");
+const vers = mine.map((u) => (u.match(/\?v=(\d{8}[a-z]?)$/) || [])[1]);
+assert.ok(vers.every(Boolean), "버전 꼬리표(?v=20261114 같은 것)가 빠진 파일이 있음: " + mine.filter((u, i) => !vers[i]).join(", "));
+assert.ok(new Set(vers).size === 1, "파일마다 버전 꼬리표가 다름: " + [...new Set(vers)].join(", "));
+
 console.log("모든 점검 통과");
