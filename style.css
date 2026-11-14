@@ -304,6 +304,12 @@ button.figure { cursor: pointer; }
 .sum-cats { padding-top: 4px; }
 .sum-cats .label { margin-bottom: 12px; }
 #cat-bars li { font-size: var(--fs-body); }
+/* 누를 수 있는 분류 줄: 높이 44px 이상, 오른쪽 끝에 작은 › (차트 코드가 li에 인라인으로 격자를 줘서 padding/margin만 씀) */
+#cat-bars li.is-link { position: relative; min-height: 44px; align-content: center; cursor: pointer; padding: 0 22px 0 8px; margin: 0 -8px; border-radius: var(--radius-inner); transition: background-color 150ms var(--ease-out); }
+#cat-bars li.is-link::after, .budget-link::after { content: "›"; color: var(--faint); font-size: 18px; line-height: 1; }
+#cat-bars li.is-link::after { position: absolute; right: 8px; top: 50%; translate: 0 -50%; }
+@media (hover: hover) { #cat-bars li.is-link:hover { background: var(--raised-hover); } }
+#cat-bars li.is-link:active { background: var(--raised); }
 /* 빈 화면: 가운데 정렬 + 다음에 할 일 안내 */
 .empty { color: var(--muted); padding: 28px 0; list-style: none; text-align: center; display: grid; justify-items: center; gap: 12px; }
 .empty.ok { color: var(--positive); }
@@ -402,6 +408,12 @@ input::placeholder { color: var(--faint); }
 .budget-line > span:first-child { word-break: keep-all; }   /* 이름은 띄어쓰기에서만 줄바꿈 (넘치면 위 anywhere가 마지막 수단) */
 .budget-carry { display: block; color: var(--muted); font-size: var(--fs-small); line-height: 18px; white-space: nowrap; }   /* 이월은 이름 아래 보조 줄 */
 .budget-line .num { flex: none; color: var(--muted); font-size: var(--fs-small); }
+/* 누를 수 있는 예산 줄: 버튼 기본 모양 제거, 위아래 11px로 44px 이상 만들고 마진으로 자리는 그대로 */
+.budget-link { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; min-width: 0; margin: -11px -8px; padding: 11px 8px; width: calc(100% + 16px); border: 0; border-radius: var(--radius-inner); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color 150ms var(--ease-out); }
+.budget-link .budget-line { flex: 1; min-width: 0; }
+.budget-link::after { flex: none; }
+@media (hover: hover) { .budget-link:hover { background: var(--raised-hover); } }
+.budget-link:active { background: var(--raised); }
 .budget-track { height: 8px; margin-top: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
 .budget-fill { height: 100%; border-radius: inherit; animation: budget-grow 400ms var(--ease-out); }   /* 통째로 다시 그려도 보이게 transition 대신 animation */
 @keyframes budget-grow { from { width: 0; } }
@@ -513,6 +525,7 @@ dialog h2 { margin-bottom: 14px; }
 @media (prefers-reduced-motion: reduce) {
   *:not(dialog) { transition: none !important; }
   .budget-fill { animation: none; }
+  #cat-bars li.is-link, .budget-link { transition: none; }
   dialog, dialog[open] { transform: none; }   /* 크기 움직임은 빼고 페이드만 남김 */
   @starting-style { dialog[open] { transform: none; } }
   .btn:not(:disabled):active, .icon-btn:active, .row-btn:active { transform: none; opacity: 0.7; }   /* 크기 대신 살짝 어두워짐으로 눌림 표시 */

@@ -233,14 +233,21 @@
     const byCat = {};
     for (const t of monthTxns) if (t.type === "expense") byCat[t.category || "분류 없음"] = (byCat[t.category || "분류 없음"] || 0) + L.sumCents([t]);
     const cats = Object.entries(byCat).map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 6);
-    if (cats.length) C.barList($("cat-bars"), cats, { format: fmt, thin: true, colour: "var(--accent)" });
-    else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
+    if (cats.length) {
+      C.barList($("cat-bars"), cats, { format: fmt, thin: true, colour: "var(--accent)" });
+      $("cat-bars").querySelectorAll("li").forEach((li, i) => {
+        if (!cats[i] || cats[i].label === "분류 없음") return;
+        li.classList.add("is-link"); li.setAttribute("role", "button"); li.tabIndex = 0;
+        li.dataset.cat = cats[i].label;
+        li.setAttribute("aria-label", `${cats[i].label} 내역 보기`);
+      });
+    } else $("cat-bars").innerHTML = `<p class="empty">${monthLabel(ym)}에는 아직 지출이 없어요.</p>`;
 
     // 분류별 예산 진행 막대 (예산이 하나도 없으면 숨김)
     const budgets = L.budgetRows(data.categories, data.txns, ym);
     $("budget-bars").hidden = !budgets.length;
     $("budget-list").innerHTML = budgets.map((b) => `<li>
-      <div class="budget-line"><span>${esc(b.name)}${b.carry ? `<small class="budget-carry">이월 ${esc(fmt(b.carry))}</small>` : ""}</span><span class="num">${esc(fmt(b.spent))} / ${esc(fmt(b.available))}</span></div>
+      ${b.name ? `<button type="button" class="budget-link" data-cat="${esc(b.name)}" aria-label="${esc(b.name)} 내역 보기">` : ""}<div class="budget-line"><span>${esc(b.name)}${b.carry ? `<small class="budget-carry">이월 ${esc(fmt(b.carry))}</small>` : ""}</span><span class="num">${esc(fmt(b.spent))} / ${esc(fmt(b.available))}</span></div>${b.name ? "</button>" : ""}
       <div class="budget-track" role="progressbar" aria-label="${esc(b.name)} 예산 사용" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.min(b.pct, 100)}"><div class="budget-fill budget-${b.level}" style="width:${Math.min(b.pct, 100)}%"></div></div>
       ${b.level === "over" ? `<p class="budget-over">초과 ${esc(fmt(b.spent - b.available))}</p>` : ""}
     </li>`).join("");
@@ -444,7 +451,23 @@
   $("m-prev").onclick = () => { state.month = L.addMonths(state.month, -1); renderMain(); };
   $("m-next").onclick = () => { state.month = L.addMonths(state.month, 1); renderMain(); };
   $("add-btn").onclick = openNew;
-  const openHistory = (type) => { Object.assign(state.hist, { mode: "month", anchor: state.month + "-01", type, cat: "" }); show("history"); };
+  const openHistory = (type, cat = "") => { Object.assign(state.hist, { mode: "month", anchor: state.month + "-01", type, cat }); show("history"); };
+  // 분류 막대·예산 줄 누르기 (이벤트 위임: 부모에 한 번만 등록)
+  $("budget-list").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-cat]");
+    if (b) openHistory("expense", "expense|" + b.dataset.cat);
+  });
+  const catBars = $("cat-bars");
+  const openBar = (e) => {
+    const li = e.target.closest("li.is-link");
+    if (!li || !catBars.contains(li)) return;
+    openHistory("expense", "expense|" + li.dataset.cat);
+  };
+  catBars.addEventListener("click", openBar);
+  catBars.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault(); openBar(e);
+  });
   $("sum-income").onclick = () => openHistory("income");
   $("sum-expense").onclick = () => openHistory("expense");
   document.addEventListener("click", (e) => {
