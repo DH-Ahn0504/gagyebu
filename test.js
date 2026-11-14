@@ -64,6 +64,21 @@ assert.equal(L.budgetStatus(5, null), null);
 // 쓸 수 있는 돈이 0 이하(이월이 마이너스)면 null이 아니라 바로 over
 assert.deepEqual(L.budgetStatus(0, 0), { pct: 100, level: "over" });
 assert.deepEqual(L.budgetStatus(5, -300), { pct: 100, level: "over" });
+
+// 저축 목표 진행
+assert.equal(L.goalStatus(100, null), null);
+assert.equal(L.goalStatus(100, undefined), null);
+assert.equal(L.goalStatus(100, 0), null);
+assert.equal(L.goalStatus(100, -5), null);
+assert.deepEqual(L.goalStatus(0, 1000), { pct: 0, reached: false, shownPct: 0 });
+assert.deepEqual(L.goalStatus(499, 1000), { pct: 49, reached: false, shownPct: 49 });
+assert.deepEqual(L.goalStatus(1000, 1000), { pct: 100, reached: true, shownPct: 100 });
+assert.deepEqual(L.goalStatus(1200, 1000), { pct: 100, reached: true, shownPct: 120 });
+assert.deepEqual(L.goalStatus(-500, 1000), { pct: 0, reached: false, shownPct: 0 });
+assert.deepEqual(L.goalStatus(NaN, 1000), { pct: 0, reached: false, shownPct: 0 });
+assert.deepEqual(L.goalStatus("abc", 1000), { pct: 0, reached: false, shownPct: 0 });
+assert.equal(L.goalStatus(100, "1000"), null);
+assert.deepEqual(L.goalStatus(5e9, 1e10), { pct: 50, reached: false, shownPct: 50 });
 const cats = [
   { type: "expense", name: "식비", budget_cents: 10000 },
   { type: "expense", name: "교통", budget_cents: 5000 }, // 지출 0이어도 나옴

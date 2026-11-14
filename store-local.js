@@ -30,6 +30,7 @@
     async updateTxn(t) { change((d) => { const i = d.txns.findIndex((x) => x.id === t.id); if (i >= 0) d.txns[i] = { ...d.txns[i], ...t }; }); },
     async deleteTxn(id) { change((d) => { d.txns = d.txns.filter((t) => t.id !== id); }); },
     async setBases(bases) { change((d) => d.accounts.forEach((a) => { if (a.id in bases) a.base_cents = bases[a.id]; })); },
+    async setGoal(id, cents) { change((d) => { const a = d.accounts.find((x) => x.id === id); if (a) a.goal_cents = cents; }); },
     async addCategory(type, name) {
       change((d) => { if (!d.categories.some((c) => c.type === type && c.name === name)) d.categories.push({ type, name }); });
     },

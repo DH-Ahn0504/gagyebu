@@ -55,6 +55,7 @@
     async setBases(bases) {
       for (const [id, base_cents] of Object.entries(bases)) check(await sb.from("accounts").update({ base_cents }).eq("id", id));
     },
+    async setGoal(id, cents) { check(await sb.from("accounts").update({ goal_cents: cents }).eq("id", id)); },
     async addCategory(type, name) {
       check(await sb.from("categories").upsert({ type, name }, { onConflict: "type,name", ignoreDuplicates: true }));
     },

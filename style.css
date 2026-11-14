@@ -421,6 +421,15 @@ input::placeholder { color: var(--faint); }
 .budget-warn { background: var(--warning-fill); }          /* 주황: 금색 데이터색(--accent)과 구분되게 더 붉은 쪽 */
 .budget-over { background: var(--negative); }
 p.budget-over { background: none; color: var(--negative); font-size: 14px; line-height: 20px; font-weight: 600; margin-top: 4px; }
+/* 공동 저축 목표 막대 (예산 막대와 같은 방식, 저축 통장 줄 아래 보조 줄) */
+.goal { margin-top: 6px; }
+#a-goal:not(:empty) { margin-bottom: var(--gap); }
+.goal-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; color: var(--muted); font-size: var(--fs-small); line-height: 18px; text-align: left; overflow-wrap: anywhere; }
+.goal-line .num { font-weight: 600; color: var(--text); }
+.goal-track { height: 8px; margin-top: 6px; border-radius: 999px; background: var(--raised); overflow: hidden; }
+.goal-fill { height: 100%; max-width: 100%; border-radius: inherit; background: var(--accent); transition: width 400ms var(--ease-out); }   /* 움직임 줄이기에서는 아래 전체 규칙(transition: none)이 꺼 줌 */
+.goal.is-done .goal-fill { background: var(--positive); }
+.goal-badge { flex: none; padding: 0 8px; border-radius: 999px; border: 1px solid var(--positive); color: var(--positive); font-size: var(--fs-small); line-height: 16px; font-weight: 600; white-space: nowrap; }   /* 색 + 글자 + 테두리로 알림 */
 /* 설정 입력칸: 좁은 폭에서 이름이 길어도 입력칸이 안 깨지게 */
 #budget-form label { min-width: 0; overflow-wrap: anywhere; }
 #budget-form input { min-width: 0; }

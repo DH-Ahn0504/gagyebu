@@ -217,6 +217,14 @@
     return `<p class="meta num${cents < 0 ? " neg" : ""}">월말 예상 ${esc(fmt(cents))}</p>`;
   }
 
+  // 저축 목표 한 줄 (목표가 없거나 옛 DB라 칸이 없으면 빈 글자)
+  function goalLine(id) {
+    const a = data.accounts.find((x) => x.id === id);
+    const g = a && L.goalStatus(L.balanceOn(a, data.txns), a.goal_cents);
+    if (!g) return "";
+    return `<div class="goal${g.reached ? " is-done" : ""}"><div class="goal-line"><span>저축 목표 <b class="num">${esc(fmt(a.goal_cents))}</b> 중 ${esc(g.shownPct)}%</span>${g.reached ? `<span class="goal-badge">목표 달성</span>` : ""}</div><div class="goal-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${esc(g.pct)}" aria-label="저축 목표 진행률"><div class="goal-fill" style="width:${esc(g.pct)}%"></div></div></div>`;
+  }
+
   function renderMain() {
     const ym = state.month;
     const isNow = ym === today().slice(0, 7);
@@ -257,7 +265,7 @@
     // 동현 · 함께 · 나윤
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     const acctLine = (id) =>
-      `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>${isNow ? projected(id, due) : ""}`;
+      `<button class="acct-link" data-account="${id}"><span>${esc(accountName(id))}</span><span class="num">${amtHtml(bal[id])}</span></button>${isNow ? projected(id, due) : ""}${id === "savings" ? goalLine(id) : ""}`;
     // 용돈 줄: 이번 달 쓸 수 있는 돈(예산+이월)과 남은 돈. 예산이 없으면 안내만
     const allowLine = (name) => {
       const r = budgets.find((b) => b.name === name);
@@ -342,6 +350,7 @@
     pressSeg($("a-mode"), "mode", mode);
     $("a-name").textContent = a.name;
     $("a-sub").textContent = "두 사람이 함께 쓰는 통장";
+    $("a-goal").innerHTML = a.id === "savings" ? goalLine(a.id) : "";
     $("a-label").textContent = periodLabel(mode, anchor);
 
     const points = L.balanceSeries(a, data.txns, mode, anchor);
@@ -376,7 +385,8 @@
     const bal = Object.fromEntries(data.accounts.map((a) => [a.id, L.balanceOn(a, data.txns)]));
     if (!$("balance-form").contains(document.activeElement)) {
       $("balance-form").innerHTML = data.accounts.map((a) =>
-        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>`).join("") +
+        `<label>${esc(a.name)} (€) <input name="${esc(a.id)}" inputmode="decimal" value="${(bal[a.id] / 100).toFixed(2).replace(".", ",")}"></label>` +
+        (a.id === "savings" ? `<label>저축 목표 (€) <input name="goal-${esc(a.id)}" inputmode="decimal" placeholder="없음" value="${esc(a.goal_cents > 0 ? (a.goal_cents / 100).toFixed(2).replace(".", ",") : "")}"></label>` : "")).join("") +
         `<p class="error" role="alert"></p><div class="row"><button class="btn primary">현재 잔액 저장</button></div>`;
     }
     $("balance-total").textContent = `전체 합계 ${fmt(Object.values(bal).reduce((s, v) => s + v, 0))}`;
@@ -491,12 +501,23 @@
       if (!(cents >= 0)) { err.textContent = `${a.name} 금액을 확인해 주세요.`; return; }
       changed.push([a.id, cents]);
     }
+    // 저축 목표: 잔액과 따로. 비우면 삭제(null), 1억 € 넘으면 거절
+    let goal;   // undefined = 안 바뀜
+    const gIn = form.elements["goal-savings"];
+    if (gIn && gIn.value.trim() !== gIn.defaultValue.trim()) {
+      const text = gIn.value.trim(), cents = text === "" ? null : L.parseAmount(text);
+      if (text !== "" && !(cents > 0 && cents <= 1e10)) { err.textContent = "저축 목표 금액을 확인해 주세요."; return; }
+      goal = cents;
+    }
     err.textContent = "";
-    if (!changed.length) return;
+    if (!changed.length && goal === undefined) return;
     save(form, form.querySelector("button"), async () => {
-      const fresh = await S.load();   // 저장 직전의 최신 내역으로 계산
-      await S.setBases(L.basesFor(changed, fresh.txns));
-    }, "저장하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", () => document.activeElement.blur());
+      if (changed.length) {
+        const fresh = await S.load();   // 저장 직전의 최신 내역으로 계산
+        await S.setBases(L.basesFor(changed, fresh.txns));
+      }
+      if (goal !== undefined) await S.setGoal("savings", goal);
+    }, changed.length && goal !== undefined ? "일부만 저장됐을 수 있어요. 새로고침해서 확인해 주세요." : "저장하지 못했어요. 인터넷을 확인하고 다시 시도해 주세요.", () => document.activeElement.blur());
   });
 
   let budgetSaving = false;

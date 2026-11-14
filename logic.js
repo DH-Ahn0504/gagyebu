@@ -185,6 +185,14 @@
       });
   }
 
+  // 저축 목표 진행: 목표가 없거나 0 이하면 null. pct는 막대용(0~100, 내림), shownPct는 글자용(실제 %, 120 등)
+  function goalStatus(balanceCents, goalCents) {
+    if (!Number.isFinite(goalCents) || goalCents <= 0) return null;
+    const bal = Number.isFinite(balanceCents) ? balanceCents : 0;
+    const shownPct = Math.max(0, Math.floor((bal * 100) / goalCents));
+    return { pct: Math.min(shownPct, 100), reached: bal >= goalCents, shownPct };
+  }
+
   const newest = (a, b) => (b.date + b.created_at).localeCompare(a.date + a.created_at);
 
   // 같은 종류에서 내용이 정확히 같은 가장 최근 내역 (없으면 null)
@@ -209,7 +217,7 @@
     CARRY_CATEGORIES, carryFor,
     formatCents, parseAmount, delta, balanceOn, baseFor, basesFor, toDateStr, addMonths, addDays,
     dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
-    budgetStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,
+    budgetStatus, goalStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,
   };
   if (typeof module !== "undefined") module.exports = api;
   else root.Logic = api;
