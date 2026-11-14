@@ -25,7 +25,7 @@
     { key: "ny", name: "나윤", initial: "나", accounts: [], category: "나윤 용돈" },
   ];
   const personClass = (name) => (name === "동현" ? "dh" : name === "나윤" ? "ny" : "");
-  const personInitial = (name) => (name === "동현" ? "동" : name === "나윤" ? "나" : name === "정기 지출" ? "자" : "?");
+  const personInitial = (name) => (name === "동현" ? "동" : name === "나윤" ? "나" : name === "정기 지출" || name === "정기 수입" ? "자" : "?");
 
   const accountName = (id) => (data.accounts.find((a) => a.id === (id || "everyday")) || { name: id }).name;
   const accountOptions = (selected) =>
@@ -187,7 +187,7 @@
       return `${head}<li><button class="row-btn" data-edit="${esc(t.id)}" aria-label="${esc(t.description)} ${esc(fmt(t.amount_cents))} 수정">
         <span class="avatar ${personClass(t.created_by)}" title="${esc(t.created_by)}">${esc(personInitial(t.created_by))}</span>
         <span><span class="row-title" style="display:block">${esc(t.description)}</span><span class="row-sub" style="display:block">${where}</span></span>
-        <span class="row-amt num ${t.type}">${sign}${amtHtml(t.amount_cents)}</span>
+        <span class="row-amt num ${esc(t.type)}">${sign}${amtHtml(t.amount_cents)}</span>
       </button></li>`;
     }).join("");
   }
@@ -200,7 +200,9 @@
   });
 
   // ---------- 가계부 (첫 화면) ----------
-  // 이번 달에 아직 기록되지 않은 자동 지출 (매일 아침 Supabase가 기록함)
+  // 정기 항목 금액 칸: 수입은 초록 "+", 지출은 "−" (type 칸이 없는 옛 DB는 모두 지출)
+  const billAmt = (b) => `<span class="row-amt num${b.type === "income" ? " income" : ""}">${b.type === "income" ? "+" : "−"}${amtHtml(b.amount_cents)}</span>`;
+  // 이번 달에 아직 기록되지 않은 자동 지출·수입 (매일 아침 Supabase가 기록함)
   function billsLeft(ym) {
     const [y, m] = ym.split("-").map(Number);
     const last = new Date(y, m, 0).getDate();
@@ -286,8 +288,9 @@
 
     txnRows($("month-list"), monthTxns.slice(0, 5), `${monthLabel(ym)}에는 아직 내역이 없어요.`, true);
 
-    // 남은 자동 지출
-    const dueSum = L.sumCents(due);
+    // 남은 자동 기록 (지출·수입)
+    const dueSum = L.billSums(due);
+    const dueExp = due.filter((b) => b.type !== "income");
     $("bills-due").innerHTML = !isNow
       ? `<li class="empty">이번 달 화면에서만 보여요.</li>`
       : due.length
@@ -297,14 +300,16 @@
             return `<li class="row-static${i === 0 ? " next" : ""}">
             <span class="day-chip"><b class="num">${b.day}</b>일</span>
             <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${when ? ` · <span class="when">${when}</span>` : ""}</span></span>
-            <span></span><span class="row-amt num">−${amtHtml(b.amount_cents)}</span></li>`;
+            <span></span>${billAmt(b)}</li>`;
           }).join("")
-        : `<li class="empty ok">이번 달 자동 지출은 모두 기록됐어요.</li>`;
-    $("bills-total").innerHTML = due.length ? `<span>${due.length}건 합계</span><span class="num">−${amtHtml(dueSum)}</span>` : "";
+        : `<li class="empty ok">이번 달 자동 기록은 모두 끝났어요.</li>`;
+    const nIn = due.length - dueExp.length;
+    $("bills-total").innerHTML = (dueExp.length ? `<span>지출 ${dueExp.length}건 <span class="num">−${amtHtml(dueSum.expense)}</span></span>` : "") +
+      (nIn ? `<span>수입 ${nIn}건 <span class="num">+${amtHtml(dueSum.income)}</span></span>` : "");
 
     // 한 줄 요약 (이번 달에 가장 먼저 알아야 할 것)
-    $("main-finding").textContent = isNow && due.length
-      ? `${monthLabel(ym)} · 자동 지출 ${due.length}건 ${fmt(dueSum)}가 더 빠져요. 다음은 ${due[0].day}일 ${due[0].description}.`
+    $("main-finding").textContent = isNow && dueExp.length
+      ? `${monthLabel(ym)} · 자동 지출 ${dueExp.length}건 ${fmt(dueSum.expense)}가 더 빠져요. 다음은 ${dueExp[0].day}일 ${dueExp[0].description}.`
       : `${monthLabel(ym)} · 내역 ${monthTxns.length}건`;
   }
 
@@ -401,13 +406,14 @@
     }
     document.querySelectorAll(".account-select").forEach((s) => { s.innerHTML = accountOptions(s.value || "everyday"); });
     const bills = [...data.bills].sort((a, b) => a.due_day - b.due_day);
-    $("bill-total").textContent = bills.length ? `매달 ${bills.length}건 · 합계 ${fmt(L.sumCents(bills))}` : "";
+    const bs = L.billSums(bills), nIn = bills.filter((b) => b.type === "income").length;
+    $("bill-total").textContent = [bills.length - nIn && `지출 ${bills.length - nIn}건 −${fmt(bs.expense)}`, nIn && `수입 ${nIn}건 +${fmt(bs.income)}`].filter(Boolean).join(" · ");
     $("bill-list").innerHTML = bills.length ? bills.map((b) => `<li class="row-static">
       <span class="day-chip"><b class="num">${esc(b.due_day)}</b>일</span>
       <span><span class="row-title" style="display:block">${esc(b.description)}</span><span class="row-sub" style="display:block">${esc(accountName(b.account_id))}${b.last_processed_month ? ` · 마지막 기록 ${esc(b.last_processed_month)}` : ""}</span></span>
-      <span class="row-amt num">−${amtHtml(b.amount_cents)}</span>
-      <button class="text-btn" data-delbill="${esc(b.id)}" aria-label="${esc(b.description)} 자동 지출 삭제">삭제</button></li>`).join("")
-      : `<li class="empty">등록된 자동 지출이 없어요.</li>`;
+      ${billAmt(b)}
+      <button class="text-btn" data-delbill="${esc(b.id)}" aria-label="${esc(b.description)} 자동 ${b.type === "income" ? "수입" : "지출"} 삭제">삭제</button></li>`).join("")
+      : `<li class="empty">등록된 자동 기록이 없어요.</li>`;
   }
 
   // ---------- 화면 전환 ----------
@@ -582,7 +588,7 @@
       if (confirm(`'${name}' 분류를 삭제할까요? 예전 내역의 분류는 그대로 남습니다.`) &&
         (type !== "expense" || !L.CARRY_CATEGORIES.includes(name) || confirm(`'${name}'은(는) 월 예산과 이월 기록이 붙은 분류예요. 정말 삭제할까요?`))) save($("cat-form"), c, () => S.deleteCategory(type, name), "분류를 지우지 못했어요. 다시 시도해 주세요.");
     }
-    if (b && confirm("이 자동 지출을 삭제할까요? 이미 기록된 내역은 남습니다.")) save($("bill-form"), b, () => S.deleteBill(b.dataset.delbill), "자동 지출을 지우지 못했어요. 다시 시도해 주세요.");
+    if (b && confirm("이 자동 기록(지출·수입)을 삭제할까요? 이미 기록된 내역은 남습니다.")) save($("bill-form"), b, () => S.deleteBill(b.dataset.delbill), "자동 기록을 지우지 못했어요. 다시 시도해 주세요.");
   });
 
   $("bill-form").addEventListener("submit", (e) => {
@@ -590,10 +596,12 @@
     const form = e.target, f = new FormData(form);
     const amount = L.parseAmount(f.get("amount"));
     const day = Number(f.get("due_day"));
-    if (!(amount > 0) || !(day >= 1 && day <= 31)) { errBox(form).textContent = "금액과 날짜(1~31일)를 확인해 주세요."; return; }
+    const description = String(f.get("description") || "").trim();
+    if (!(amount > 0) || !Number.isInteger(day) || day < 1 || day > 31) { errBox(form).textContent = "금액과 날짜(1~31일)를 확인해 주세요."; return; }
+    if (!description) { errBox(form).textContent = "내용은 1자 이상 60자 이하로 입력해 주세요."; return; }
     save(form, form.querySelector("button"),
-      () => S.addBill({ description: String(f.get("description")).trim(), amount_cents: amount, account_id: f.get("account_id"), due_day: day }),
-      "자동 지출을 추가하지 못했어요. 다시 시도해 주세요.", () => form.reset());
+      () => S.addBill({ description,amount_cents: amount, account_id: f.get("account_id"), due_day: day, ...(f.get("type") === "income" ? { type: "income" } : {}) }), // 지출은 type을 안 보냄 (기본값 expense, 옛 DB에서도 안전)
+      `자동 기록을 추가하지 못했어요.${f.get("type") === "income" ? " (수입은 서버 설정이 먼저 필요할 수 있어요.)" : ""} 다시 시도해 주세요.`, () => form.reset());
   });
 
   $("h-mode").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { state.hist.mode = b.dataset.mode; renderHistory(); }));

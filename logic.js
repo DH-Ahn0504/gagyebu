@@ -12,6 +12,7 @@
   };
   const CARRY_CATEGORIES = ["동현 용돈", "나윤 용돈"]; // 월 예산을 다음 달로 이월하는 지출 분류
   const RECURRING_CATEGORY = "공과금";
+  const RECURRING_INCOME_CATEGORY = "급여";
   const TYPE_LABEL = { income: "수입", expense: "지출", transfer: "이체" };
 
   const euro = new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" });
@@ -71,6 +72,11 @@
     const [y, m, d] = dateStr.split("-").map(Number);
     return toDateStr(new Date(y, m - 1, d + n));
   }
+
+  // 정기 항목이 만드는 내역의 종류·분류·입력자 (type 칸이 없는 옛 항목은 지출). 서버 함수 process_recurring_bills()와 같은 규칙
+  const recurringFields = (b) => b.type === "income"
+    ? { type: "income", category: RECURRING_INCOME_CATEGORY, created_by: "정기 수입" }
+    : { type: "expense", category: RECURRING_CATEGORY, created_by: "정기 지출" };
 
   // 이번 달에 기록해야 할 정기 지출 (예전 앱과 같은 규칙: 납부일이 지났고, 이번 달에 아직 안 했으면)
   function dueRecurring(bills, txns, todayStr) {
@@ -206,17 +212,25 @@
     return [...new Set(names)].slice(0, limit);
   }
 
-  // 월말 예상 잔액: 지금 잔액 − 남은 자동 지출 중 이 통장에서 빠질 합계 (통장 없으면 생활비 통장)
+  // 월말 예상 잔액: 지금 잔액 − 남은 자동 지출 + 남은 자동 수입 (이 통장 것만, 통장 없으면 생활비 통장)
   // 금액(amount_cents) 합계. 숫자가 아닌 금액은 건너뜀 (화면에 NaN이 안 뜨게)
   const sumCents = (list) => list.reduce((s, x) => s + (Number.isFinite(x.amount_cents) ? x.amount_cents : 0), 0);
-  const projectedBalance = (account, txns, billsLeft) => !account ? null :
-    balanceOn(account, txns) - sumCents(billsLeft.filter((b) => (b.account_id || "everyday") === account.id));
+  // 정기 항목 합계를 지출·수입으로 나눔 (type 없으면 지출)
+  const billSums = (list) => ({
+    expense: sumCents(list.filter((b) => b.type !== "income")),
+    income: sumCents(list.filter((b) => b.type === "income")),
+  });
+  const projectedBalance = (account, txns, billsLeft) => {
+    if (!account) return null;
+    const s = billSums(billsLeft.filter((b) => (b.account_id || "everyday") === account.id));
+    return balanceOn(account, txns) - s.expense + s.income;
+  };
 
   const api = {
-    ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, TYPE_LABEL,
+    ACCOUNTS, DEFAULT_CATEGORIES, RECURRING_CATEGORY, RECURRING_INCOME_CATEGORY, TYPE_LABEL,
     CARRY_CATEGORIES, carryFor,
     formatCents, parseAmount, delta, balanceOn, baseFor, basesFor, toDateStr, addMonths, addDays,
-    dueRecurring, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
+    dueRecurring, recurringFields, billSums, periodRange, filterTxns, totals, balanceSeries, categoryOptions,
     budgetStatus, goalStatus, budgetRows, suggestFor, recentDescriptions, projectedBalance, sumCents,
   };
   if (typeof module !== "undefined") module.exports = api;

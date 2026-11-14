@@ -45,8 +45,8 @@
       change((d) => {
         for (const b of L.dueRecurring(d.bills, d.txns, today)) {
           d.txns.push({
-            id: newId(), type: "expense", amount_cents: b.amount_cents, description: b.description, date: today,
-            account_id: b.account_id, category: L.RECURRING_CATEGORY, created_by: "정기 지출",
+            id: newId(), ...L.recurringFields(b), amount_cents: b.amount_cents, description: b.description, date: today,
+            account_id: b.account_id,
             created_at: new Date().toISOString(), recurring_bill_id: b.id, recurring_month: today.slice(0, 7),
           });
           b.last_processed_month = today.slice(0, 7);

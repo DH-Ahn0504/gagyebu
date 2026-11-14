@@ -45,6 +45,10 @@ assert.equal(L.dueRecurring([bill], [], "2026-02-28").length, 1);
 assert.equal(L.dueRecurring([{ ...bill, last_processed_month: "2026-02" }], [], "2026-02-28").length, 0);
 assert.equal(L.dueRecurring([bill], [{ recurring_bill_id: "b1", recurring_month: "2026-02" }], "2026-02-28").length, 0);
 assert.equal(L.dueRecurring([{ ...bill, active: false }], [], "2026-02-28").length, 0);
+// 정기 수입이 만드는 내역: 수입·급여·'정기 수입', 옛 항목(type 없음)은 지출·공과금·'정기 지출'
+assert.deepEqual(L.recurringFields({ type: "income" }), { type: "income", category: "급여", created_by: "정기 수입" });
+assert.deepEqual(L.recurringFields(bill), { type: "expense", category: "공과금", created_by: "정기 지출" });
+assert.equal(L.RECURRING_INCOME_CATEGORY, "급여");
 
 // 기간
 assert.deepEqual(L.periodRange("month", "2026-02-10"), ["2026-02-01", "2026-02-28"]);
@@ -163,6 +167,10 @@ assert.equal(L.projectedBalance(everyday, txns, [{ account_id: "", amount_cents:
 assert.equal(L.projectedBalance(savings, txns, [{ account_id: "savings", amount_cents: 4000 }]), -500);
 assert.equal(L.projectedBalance(undefined, txns, []), null);
 assert.equal(L.projectedBalance(everyday, txns, [{ account_id: "everyday", amount_cents: NaN }, { account_id: "everyday", amount_cents: "x" }, { account_id: "everyday", amount_cents: 500 }]), 4000);
+// 정기 수입: type 없는 옛 항목은 지출, 수입은 더함, 섞이면 따로 합산
+assert.deepEqual(L.billSums([{ amount_cents: 100 }, { type: "expense", amount_cents: 50 }, { type: "income", amount_cents: 700 }]), { expense: 150, income: 700 });
+assert.equal(L.projectedBalance(everyday, txns, [{ account_id: "everyday", type: "income", amount_cents: 2000 }]), 6500);
+assert.equal(L.projectedBalance(everyday, txns, [{ account_id: "everyday", type: "income", amount_cents: 2000 }, { account_id: "everyday", amount_cents: 1000 }, { account_id: "savings", type: "income", amount_cents: 999 }]), 5500);
 assert.equal(L.sumCents([{ amount_cents: 300 }, { amount_cents: NaN }, { amount_cents: "x" }, {}, { amount_cents: 200 }]), 500);
 
 // 망가진 금액(NaN/문자열/null)이 섞여도 합계·예산·잔액에 NaN이 안 나옴
